@@ -1,0 +1,30 @@
+{
+  "filePath": ".spec-workflow/specs/flow-paste/tasks.md",
+  "currentVersion": 3,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-18T13:52:26.507Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766065946500_6gyxfpliz",
+      "approvalTitle": "FlowPaste Tasks Document (31 Tasks)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-18T13:52:49.256Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766065946500_6gyxfpliz",
+      "approvalTitle": "FlowPaste Tasks Document (31 Tasks)"
+    },
+    {
+      "version": 3,
+      "filename": "snapshot-003.json",
+      "timestamp": "2025-12-18T14:31:53.734Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766068303556_yrxep44r3",
+      "approvalTitle": "Updated Tasks (Reordered, Logging/Permissions/CI Added)"
+    }
+  ]
+}

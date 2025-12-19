@@ -1,0 +1,38 @@
+{
+  "filePath": ".spec-workflow/specs/flow-paste/design.md",
+  "currentVersion": 4,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-18T13:43:07.546Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766065387541_c6s5ma08o",
+      "approvalTitle": "FlowPaste Design Document (MVP v1.0)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-18T13:46:38.818Z",
+      "trigger": "revision_requested",
+      "approvalId": "approval_1766065387541_c6s5ma08o",
+      "approvalTitle": "FlowPaste Design Document (MVP v1.0)"
+    },
+    {
+      "version": 3,
+      "filename": "snapshot-003.json",
+      "timestamp": "2025-12-18T13:49:25.870Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766065735404_k3t0t81ny",
+      "approvalTitle": "FlowPaste Design Document (Vue 3 + TypeScript)"
+    },
+    {
+      "version": 4,
+      "filename": "snapshot-004.json",
+      "timestamp": "2025-12-18T14:31:55.156Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766068303471_17a2j5axw",
+      "approvalTitle": "Updated Design (IPC Events, Window Behavior Spec)"
+    }
+  ]
+}

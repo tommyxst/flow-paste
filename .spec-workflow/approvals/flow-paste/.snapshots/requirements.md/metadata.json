@@ -1,0 +1,30 @@
+{
+  "filePath": ".spec-workflow/specs/flow-paste/requirements.md",
+  "currentVersion": 3,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-12-18T13:36:35.506Z",
+      "trigger": "initial",
+      "approvalId": "approval_1766064995497_n4tmbq99u",
+      "approvalTitle": "FlowPaste Requirements Document (MVP v1.0)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2025-12-18T13:41:20.320Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766064995497_n4tmbq99u",
+      "approvalTitle": "FlowPaste Requirements Document (MVP v1.0)"
+    },
+    {
+      "version": 3,
+      "filename": "snapshot-003.json",
+      "timestamp": "2025-12-18T14:31:19.373Z",
+      "trigger": "approved",
+      "approvalId": "approval_1766068174937_em7th3vcq",
+      "approvalTitle": "Updated Requirements (REQ-13~17, Security Enhancements)"
+    }
+  ]
+}

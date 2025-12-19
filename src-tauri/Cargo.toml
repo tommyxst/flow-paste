@@ -1,0 +1,41 @@
+[package]
+name = "flow-paste"
+version = "0.1.0"
+description = "Privacy-first AI clipboard enhancement tool"
+authors = ["FlowPaste Team"]
+edition = "2021"
+
+[lib]
+name = "flow_paste_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+log = "0.4"
+env_logger = "0.11"
+regex = "1"
+once_cell = "1"
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+futures = "0.3"
+async-trait = "0.1"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

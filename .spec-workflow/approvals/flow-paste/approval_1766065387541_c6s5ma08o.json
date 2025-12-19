@@ -1,0 +1,29 @@
+{
+  "id": "approval_1766065387541_c6s5ma08o",
+  "title": "FlowPaste Design Document (MVP v1.0)",
+  "filePath": ".spec-workflow/specs/flow-paste/design.md",
+  "type": "document",
+  "status": "needs-revision",
+  "createdAt": "2025-12-18T13:43:07.541Z",
+  "category": "spec",
+  "categoryName": "flow-paste",
+  "response": "Feedback Summary (1 comments):\n\nSpecific Text Comments:\n1. \"React 18 + TypeScript + TailwindCSS\": 是否一定要使用react+tailwind？如果使用vue可以吗？\n",
+  "annotations": "{\n  \"decision\": \"needs-revision\",\n  \"comments\": [\n    {\n      \"type\": \"selection\",\n      \"comment\": \"是否一定要使用react+tailwind？如果使用vue可以吗？\",\n      \"timestamp\": \"2025-12-18T13:45:39.004Z\",\n      \"selectedText\": \"React 18 + TypeScript + TailwindCSS\",\n      \"highlightColor\": {\n        \"bg\": \"rgba(255, 235, 59, 0.3)\",\n        \"border\": \"#FFEB3B\",\n        \"name\": \"#ffeb3b\"\n      },\n      \"id\": \"comment_1766065539004_a0tmm6ydx\",\n      \"startOffset\": 220,\n      \"endOffset\": 255\n    }\n  ],\n  \"summary\": \"Feedback Summary (1 comments):\\n\\nSpecific Text Comments:\\n1. \\\"React 18 + TypeScript + TailwindCSS\\\": 是否一定要使用react+tailwind？如果使用vue可以吗？\\n\",\n  \"timestamp\": \"2025-12-18T13:46:38.811Z\"\n}",
+  "respondedAt": "2025-12-18T13:46:38.829Z",
+  "comments": [
+    {
+      "type": "selection",
+      "comment": "是否一定要使用react+tailwind？如果使用vue可以吗？",
+      "timestamp": "2025-12-18T13:45:39.004Z",
+      "selectedText": "React 18 + TypeScript + TailwindCSS",
+      "highlightColor": {
+        "bg": "rgba(255, 235, 59, 0.3)",
+        "border": "#FFEB3B",
+        "name": "#ffeb3b"
+      },
+      "id": "comment_1766065539004_a0tmm6ydx",
+      "startOffset": 220,
+      "endOffset": 255
+    }
+  ]
+}
