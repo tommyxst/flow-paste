@@ -37,14 +37,12 @@
 
 ## Phase 2: Backend Core Modules (Rust)
 
-- [ ] 5. Implement Clipboard Module
-  - Files: `src-tauri/src/clipboard/mod.rs`, `src-tauri/src/clipboard/manager.rs`
-  - Implement read_clipboard() and write_clipboard() using arboard crate
-  - Handle non-text clipboard content detection
-  - Create Tauri command wrappers
-  - _Leverage: arboard crate_
-  - _Requirements: REQ-02, REQ-03, REQ-14_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with systems programming expertise | Task: Implement clipboard module with read_clipboard() returning Result<String, ClipboardError>, write_clipboard(content: &str), detect_content_type() for non-text handling, expose as Tauri commands | Restrictions: Handle clipboard access errors gracefully, do not panic on failure, support both Windows and macOS, return clear error for non-text content | _Leverage: arboard crate documentation | Success: Can read/write clipboard via Tauri commands, proper error handling, non-text detection works | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+- [x] 5. Implement Clipboard Module
+  - Files: `src-tauri/src/clipboard/mod.rs`
+  - Implement read_clipboard() and write_clipboard() using tauri-plugin-clipboard-manager
+  - Handle non-text clipboard content detection (text/image/unknown)
+  - Create Tauri command wrappers with async/spawn_blocking
+  - _Completed: ClipboardContent struct, ClipboardError enum, async commands, TypeScript types_
 
 - [ ] 6. Implement OS Permission Checker
   - File: `src-tauri/src/permissions/mod.rs`
@@ -54,14 +52,12 @@
   - _Requirements: REQ-15_
   - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with macOS expertise | Task: Implement permission checker - check_accessibility_permission() for macOS using accessibility-sys or similar, return PermissionStatus enum, provide open_system_preferences() to guide user | Restrictions: Cache permission status, re-check on operation failure, handle Windows (always granted) gracefully | _Leverage: Platform-specific APIs | Success: Permission status correctly detected on macOS, helpful guidance provided | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
 
-- [ ] 7. Implement Config Manager with SQLite
-  - Files: `src-tauri/src/config/mod.rs`, `src-tauri/src/config/store.rs`
-  - Set up SQLite database for app configuration
-  - Implement load_config() and save_config() functions
-  - Create config table schema
-  - _Leverage: rusqlite crate_
-  - _Requirements: REQ-01 (hotkey config), REQ-08, REQ-09 (AI config)_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with database expertise | Task: Implement config manager using rusqlite - create SQLite database in app data dir, config table (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER), implement load_config/save_config with AppConfig struct | Restrictions: Use Tauri's app data directory, handle database errors properly, use prepared statements | _Leverage: rusqlite crate, Tauri path API | Success: Config persists across app restarts, CRUD operations work correctly | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+- [x] 7. Implement Config Manager with SQLite
+  - Files: `src-tauri/src/config/mod.rs`, `src-tauri/src/commands/config.rs`
+  - SQLite database with key-value settings table (FULL_MUTEX mode)
+  - Keyring integration for secure API key storage
+  - get_config/set_config/get_api_key/set_api_key Tauri commands
+  - _Completed: AppConfig struct, ConfigManager with thread-safe lock handling_
 
 - [ ] 8. Implement Keychain Integration
   - File: `src-tauri/src/config/keychain.rs`
@@ -71,13 +67,13 @@
   - _Requirements: REQ-09 (secure credential storage)_
   - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with security expertise | Task: Implement keychain integration using keyring crate - get_api_key(provider: &str) and set_api_key(provider: &str, key: &str), use "flow-paste" as service name | Restrictions: Never log or expose API keys, handle keychain access errors, support both Windows and macOS | _Leverage: keyring crate documentation | Success: API keys stored securely in OS keychain, retrievable across sessions | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
 
-- [ ] 9. Implement Regex Engine with Built-in Rules
-  - Files: `src-tauri/src/regex/mod.rs`, `src-tauri/src/regex/rules.rs`
+- [x] 9. Implement Regex Engine with Built-in Rules
+  - Files: `src-tauri/src/regex/mod.rs`, `src-tauri/src/commands/regex.rs`
   - Define Rule struct and built-in rules (remove empty lines, trim whitespace, etc.)
   - Implement apply_rule() and get_builtin_rules() functions
   - _Leverage: regex crate_
   - _Requirements: REQ-05_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer | Task: Implement regex engine - Rule struct (id, name, description, pattern, replacement, is_builtin), apply_rule(text, rule) using regex crate, get_builtin_rules() returning 5 rules: remove_empty_lines, trim_whitespace, cjk_spacing, to_plain_text, collapse_spaces | Restrictions: Rules must complete within 50ms, handle invalid regex gracefully, use lazy_static for compiled patterns | _Leverage: regex crate | Success: All 5 built-in rules work correctly, performance under 50ms | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: 6 builtin rules with timeout check, output size limit, captures_iter optimization_
 
 - [x] 10. Implement Privacy Shield - PII Scanner
   - Files: `src-tauri/src/privacy/mod.rs`, `src-tauri/src/privacy/scanner.rs`, `src-tauri/src/privacy/patterns.rs`
@@ -128,33 +124,33 @@
   - _Requirements: REQ-01_
   - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with Tauri expertise | Task: Implement hotkey module using tauri-plugin-global-shortcut - register_hotkey(keys) parsing accelerator string, unregister_hotkey(), emit "panel:toggle" event on trigger, load default from config (CommandOrControl+Shift+V), detect and report hotkey conflicts | Restrictions: Handle hotkey conflicts gracefully with user notification, support re-registration on config change, provide tray icon fallback | _Leverage: tauri-plugin-global-shortcut | Success: Global hotkey triggers panel toggle, conflicts detected, custom hotkeys work | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
 
-- [-] 16. Create Tauri Command Layer
-  - File: `src-tauri/src/commands/mod.rs`, `privacy.rs`, `ai.rs`
+- [x] 16. Create Tauri Command Layer
+  - File: `src-tauri/src/commands/mod.rs`, `privacy.rs`, `ai.rs`, `clipboard.rs`, `config.rs`, `regex.rs`
   - Expose all backend functions as Tauri commands
   - Implement proper error serialization
   - _Leverage: All backend modules_
   - _Requirements: All backend requirements_
-  - _Partial: AI commands (send_ai_request, cancel_ai_request, list_local_models, check_ollama_health) and Privacy commands (scan_pii, mask_pii, restore_pii) completed. Remaining: clipboard, config commands_
+  - _Completed: All implemented modules have Tauri commands - AI (4), Privacy (3), Clipboard (2), Config (4), Regex (3)_
 
 ---
 
 ## Phase 3: Frontend Components (Vue 3)
 
-- [ ] 17. Create Pinia Store
+- [x] 17. Create Pinia Store
   - File: `src/stores/app.ts`
   - Implement useAppStore with all state and actions from design
   - Connect to Tauri IPC for backend calls
   - _Leverage: Pinia, design.md State Management section_
   - _Requirements: All frontend requirements_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer with Pinia expertise | Task: Implement useAppStore following design.md - state (isVisible, panelMode, clipboardContent, processedContent, streamingContent, actionChips, privacyStatus, maskedMapping), actions (showPanel, hidePanel, processWithRule, processWithAI, cancelAI, confirmPaste) calling Tauri invoke | Restrictions: Use Composition API setup syntax, handle async errors properly | _Leverage: Pinia, @tauri-apps/api | Success: Store manages all app state, Tauri commands called correctly | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: Full state management with Tauri IPC integration, clipboard, AI, privacy, config actions_
 
-- [-] 18. Create Tauri IPC Wrapper
+- [x] 18. Create Tauri IPC Wrapper
   - File: `src/lib/tauri.ts`
   - Create typed wrappers for all Tauri invoke calls
   - Set up event listeners for streaming responses (ai:chunk, ai:done, ai:error)
   - _Leverage: @tauri-apps/api, TypeScript interfaces, design.md IPC Event Specification_
   - _Requirements: All (IPC foundation)_
-  - _Partial: AI and Privacy commands added (scanPii, maskPii, restorePii, listLocalModels, checkOllamaHealth, sendAiRequest, cancelAiRequest). Remaining: clipboard, config commands_
+  - _Completed: All commands wrapped - Clipboard (2), Privacy (3), AI (5), Config (4), Regex (3), Events (5)_
 
 - [-] 19. Implement FloatingPanel Component
   - File: `src/components/FloatingPanel.vue`

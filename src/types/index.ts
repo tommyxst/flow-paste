@@ -12,6 +12,23 @@ export interface ActionChip {
 }
 
 // ============================================================
+// Clipboard Types
+// ============================================================
+export type ClipboardKind = 'text' | 'image' | 'unknown'
+
+export interface ClipboardImageMeta {
+  width: number
+  height: number
+  byteLength: number
+}
+
+export interface ClipboardContent {
+  kind: ClipboardKind
+  text?: string
+  image?: ClipboardImageMeta
+}
+
+// ============================================================
 // Privacy Types
 // ============================================================
 export type PrivacyStatusType = 'local' | 'cloud-safe' | 'cloud-masked'
@@ -150,7 +167,7 @@ export interface AppConfig {
 // ============================================================
 export interface TauriCommands {
   greet: (name: string) => Promise<string>
-  readClipboard: () => Promise<string>
+  readClipboard: () => Promise<ClipboardContent>
   writeClipboard: (content: string) => Promise<void>
   scanPii: (text: string) => Promise<PIIScanResult>
   maskPii: (text: string) => Promise<{ masked: string; mapping: MaskMapping }>

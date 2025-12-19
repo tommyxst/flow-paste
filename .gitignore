@@ -31,3 +31,4 @@ src-tauri/Cargo.lock
 # Cache
 .vite/
 *.tsbuildinfo
+node_modules

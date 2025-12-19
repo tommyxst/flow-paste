@@ -5,8 +5,12 @@ use std::sync::Arc;
 mod commands;
 mod privacy;
 mod ai;
+mod clipboard;
+mod config;
+mod regex;
 
 use commands::AIState;
+use config::ConfigManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +23,11 @@ pub fn run() {
         .manage(Arc::new(AIState::default()))
         .setup(|app| {
             log::info!("FlowPaste starting...");
+
+            // Initialize Config Manager
+            let config_manager = ConfigManager::init(app.handle())
+                .expect("Failed to initialize config manager");
+            app.manage(config_manager);
 
             let window = app.get_webview_window("main").unwrap();
 
@@ -67,6 +76,15 @@ pub fn run() {
             commands::check_ollama_health,
             commands::send_ai_request,
             commands::cancel_ai_request,
+            commands::read_clipboard,
+            commands::write_clipboard,
+            commands::get_config,
+            commands::set_config,
+            commands::get_api_key,
+            commands::set_api_key,
+            commands::get_builtin_rules,
+            commands::apply_rule,
+            commands::apply_custom_rule,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

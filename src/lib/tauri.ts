@@ -8,10 +8,13 @@ import type {
   AIDonePayload,
   AIErrorPayload,
   ClipboardChangedPayload,
+  ClipboardContent,
   PIIScanResult,
   MaskMapping,
   ModelInfo,
   AIConfig,
+  AppConfig,
+  Rule,
 } from '@/types'
 
 const log = createModuleLogger('tauri')
@@ -65,6 +68,10 @@ export interface MaskResult {
 export const commands = {
   greet: (name: string) => invokeCommand<string>('greet', { name }),
 
+  // Clipboard commands
+  readClipboard: () => invokeCommand<ClipboardContent>('read_clipboard'),
+  writeClipboard: (text: string) => invokeCommand<void>('write_clipboard', { text }),
+
   // Privacy Shield commands
   scanPii: (text: string) => invokeCommand<PIIScanResult>('scan_pii', { text }),
   maskPii: (text: string) => invokeCommand<MaskResult>('mask_pii', { text }),
@@ -89,4 +96,18 @@ export const commands = {
     }),
   cancelAiRequest: (requestId: string) =>
     invokeCommand<void>('cancel_ai_request', { requestId }),
+
+  // Config commands
+  getConfig: () => invokeCommand<AppConfig>('get_config'),
+  setConfig: (config: AppConfig) => invokeCommand<void>('set_config', { config }),
+  getApiKey: (provider: string) => invokeCommand<string | null>('get_api_key', { provider }),
+  setApiKey: (provider: string, key: string) =>
+    invokeCommand<void>('set_api_key', { provider, key }),
+
+  // Regex commands
+  getBuiltinRules: () => invokeCommand<Rule[]>('get_builtin_rules'),
+  applyRule: (text: string, ruleId: string) =>
+    invokeCommand<string>('apply_rule', { text, ruleId }),
+  applyCustomRule: (text: string, rule: Rule) =>
+    invokeCommand<string>('apply_custom_rule', { text, rule }),
 }
