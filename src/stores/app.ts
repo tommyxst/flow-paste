@@ -79,8 +79,13 @@ export const useAppStore = defineStore('app', () => {
       } else {
         privacyStatus.value = { type: 'cloud-safe' }
       }
+
+      // Generate action chips based on content
+      const chips = await commands.detectContentIntent(text)
+      actionChips.value = chips
     } catch (e) {
       privacyStatus.value = { type: 'local' }
+      actionChips.value = []
     }
   }
 

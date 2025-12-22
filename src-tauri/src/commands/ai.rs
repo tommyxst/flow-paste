@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::ai::{
     AIConfig, AIError, AIProviderType, AiProvider, ChatMessage, ModelInfo,
-    OllamaProvider, OpenAIProvider, StreamChunk,
+    OllamaProvider, OpenAIProvider, StreamChunk, ActionChip, detect_intent,
 };
 use crate::privacy::{self};
 
@@ -224,4 +224,9 @@ pub async fn cancel_ai_request(
         let _ = tx.send(());
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn detect_content_intent(text: String) -> Vec<ActionChip> {
+    detect_intent(&text)
 }

@@ -107,22 +107,22 @@
   - _Requirements: REQ-08_
   - _Completed: OllamaProvider with /api/tags and /api/generate endpoints, health_check, streaming support_
 
-- [ ] 14. Implement AI Engine - Intent Detection
+- [x] 14. Implement AI Engine - Intent Detection
   - File: `src-tauri/src/ai/intent.rs`
   - Implement detect_intent() to analyze clipboard content
   - Generate ActionChip recommendations based on content type
   - _Leverage: AI clients from Tasks 12-13_
   - _Requirements: REQ-06_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with ML/NLP background | Task: Implement intent detection - detect_intent(text) analyzing content type (JSON, code, prose, table), return Vec<ActionChip> with 1-3 contextual recommendations, use heuristics first (regex for JSON/code detection) then optional AI enhancement | Restrictions: Heuristic detection must be under 10ms, ActionChips include shortcut keys '1','2','3' | _Leverage: regex for pattern matching | Success: Correct content type detection, relevant action recommendations | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: Heuristic detection for JSON/Code/Table/List/Prose, 1-3 ActionChips with shortcuts, < 10ms performance_
 
-- [ ] 15. Implement Hotkey Module
-  - Files: `src-tauri/src/hotkey/mod.rs`, `src-tauri/src/hotkey/manager.rs`
+- [x] 15. Implement Hotkey Module
+  - Files: `src-tauri/src/hotkey/mod.rs`, `src-tauri/src/commands/hotkey.rs`
   - Register global hotkey using Tauri global-shortcut plugin
   - Support custom hotkey configuration
   - Handle hotkey conflicts
   - _Leverage: Tauri global-shortcut plugin, Config Manager_
   - _Requirements: REQ-01_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with Tauri expertise | Task: Implement hotkey module using tauri-plugin-global-shortcut - register_hotkey(keys) parsing accelerator string, unregister_hotkey(), emit "panel:toggle" event on trigger, load default from config (CommandOrControl+Shift+V), detect and report hotkey conflicts | Restrictions: Handle hotkey conflicts gracefully with user notification, support re-registration on config change, provide tray icon fallback | _Leverage: tauri-plugin-global-shortcut | Success: Global hotkey triggers panel toggle, conflicts detected, custom hotkeys work | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: Dynamic hotkey registration/unregistration, CommandOrControl support, punctuation keys, atomic operations with Mutex, error logging_
 
 - [x] 16. Create Tauri Command Layer
   - File: `src-tauri/src/commands/mod.rs`, `privacy.rs`, `ai.rs`, `clipboard.rs`, `config.rs`, `regex.rs`
@@ -152,13 +152,13 @@
   - _Requirements: All (IPC foundation)_
   - _Completed: All commands wrapped - Clipboard (2), Privacy (3), AI (5), Config (4), Regex (3), Events (5)_
 
-- [-] 19. Implement FloatingPanel Component
+- [x] 19. Implement FloatingPanel Component
   - File: `src/components/FloatingPanel.vue`
   - Create Spotlight-style floating panel container
   - Handle panel visibility and keyboard navigation
   - _Leverage: TailwindCSS, Pinia store, design.md Window Behavior Specification_
   - _Requirements: REQ-01, REQ-17, UI Design 4.1_
-  - _Partial: AI streaming integration, command input, preview, ModelBadge, PrivacyIndicator added. Remaining: auto-hide on blur, focus management refinement_
+  - _Completed: Full integration with Preview, ActionChips, SettingsPanel, AI streaming, keyboard shortcuts, settings toggle (Ctrl+,)_
 
 - [ ] 20. Implement CommandInput Component
   - File: `src/components/CommandInput.vue`
@@ -168,22 +168,22 @@
   - _Requirements: REQ-07, UI Design 4.2_
   - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer | Task: Implement CommandInput.vue - borderless input with placeholder "Describe format or choose below...", emit submit on Enter, expose focus method, handle disabled state during processing | Restrictions: Auto-focus on mount, clean minimal styling | _Leverage: TailwindCSS | Success: Input works with proper focus management and submit handling | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
 
-- [ ] 21. Implement Preview Component
+- [x] 21. Implement Preview Component
   - File: `src/components/Preview.vue`
   - Display clipboard content preview and processed results
   - Support streaming output with typewriter effect
   - Handle large content truncation display
   - _Leverage: shiki for syntax highlighting_
   - _Requirements: REQ-02, REQ-13, UI Design 4.2_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer | Task: Implement Preview.vue - props (content, mode: preview|result|streaming, highlight, truncated), show first 3 lines in preview mode (gray text), full content in result mode, typewriter animation in streaming mode, show truncation warning if content was cut, optional syntax highlighting via shiki | Restrictions: Limit preview to 3 lines, handle long content with ellipsis, smooth streaming animation, show truncation notice | _Leverage: shiki, TailwindCSS | Success: All three modes render correctly, streaming looks smooth, truncation shown | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: Three modes (preview/result/streaming), truncation indicator, cursor animation, responsive styling_
 
-- [ ] 22. Implement ActionChips Component
+- [x] 22. Implement ActionChips Component
   - File: `src/components/ActionChips.vue`
   - Display AI-recommended action buttons
   - Handle selection via click and number keys (1, 2, 3)
   - _Leverage: TailwindCSS_
   - _Requirements: REQ-06, UI Design 4.2_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer | Task: Implement ActionChips.vue - props (chips: ActionChip[], selectedIndex), render chips as pill buttons with shortcut prefix [1. Label], emit select on click or number key, highlight selected chip, support keyboard navigation | Restrictions: Max 3 chips, show shortcut keys clearly | _Leverage: TailwindCSS | Success: Chips render correctly, keyboard selection works | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: Pill buttons with shortcut indicators, keyboard navigation (1-3 keys), selection highlight, click handling_
 
 - [x] 23. Implement PrivacyIndicator Component
   - File: `src/components/PrivacyIndicator.vue`
@@ -205,14 +205,14 @@
   - Support cancel during streaming
   - _Completed: Typewriter animation, cancel button, auto-scroll, cursor indicator_
 
-- [ ] 24. Implement Settings Panel
+- [x] 24. Implement Settings Panel
   - File: `src/components/SettingsPanel.vue` (new)
   - Create settings UI for API configuration
   - Handle hotkey customization
   - URL validation (HTTPS enforcement)
   - _Leverage: Pinia store, Tauri config commands_
   - _Requirements: REQ-01, REQ-08, REQ-09_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer | Task: Implement SettingsPanel.vue - form for: hotkey input, AI provider select (openai/ollama), base_url input with HTTPS validation, API key input (password type), model select, save/cancel buttons, validation feedback, test connection button | Restrictions: API key input must be masked, validate URLs (reject http://), test connection before save | _Leverage: useAppStore, Tauri config commands | Success: Settings save correctly, API connection testable, HTTPS enforced | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: Full settings form with hotkey, provider, base URL, API key, model selection, HTTPS validation, connection test_
 
 - [ ] 25. Create Composables
   - Files: `src/composables/useClipboard.ts`, `useHotkey.ts`, `useAI.ts`
@@ -222,13 +222,13 @@
   - _Requirements: All frontend requirements_
   - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer | Task: Implement composables - useClipboard() for read/paste operations, useHotkey() for listening to panel:toggle events, useAI() for AI processing with streaming support and cancellation, all using Tauri IPC wrapper | Restrictions: Properly handle component lifecycle (onMounted/onUnmounted), clean up event listeners | _Leverage: @tauri-apps/api, Pinia | Success: Composables encapsulate logic cleanly, reusable across components | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
 
-- [ ] 26. Assemble App.vue with All Components
+- [x] 26. Assemble App.vue with All Components
   - File: `src/App.vue`
   - Integrate all components into main app
   - Handle global keyboard events and panel lifecycle
   - _Leverage: All components, Pinia store, composables_
   - _Requirements: All UI requirements_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer | Task: Implement App.vue - use FloatingPanel as root, integrate CommandInput, Preview, ActionChips, PrivacyIndicator, SettingsPanel, connect to useAppStore, handle global keyboard (Esc to close/cancel, number keys for chips, Enter to confirm), manage panel state transitions | Restrictions: Clean component composition, proper event handling | _Leverage: All components and composables | Success: Full UI workflow works end-to-end | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+  - _Completed: FloatingPanel as root container, all components integrated, keyboard handling (Esc/Enter/Ctrl+,/1-3), state management connected_
 
 ---
 

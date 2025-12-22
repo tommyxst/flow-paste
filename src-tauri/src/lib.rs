@@ -1,5 +1,4 @@
-use tauri::{Manager, Emitter};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri::Manager;
 use std::sync::Arc;
 
 mod commands;
@@ -8,9 +7,11 @@ mod ai;
 mod clipboard;
 mod config;
 mod regex;
+mod hotkey;
 
 use commands::AIState;
 use config::ConfigManager;
+use hotkey::HotkeyManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -29,7 +30,12 @@ pub fn run() {
                 .expect("Failed to initialize config manager");
             app.manage(config_manager);
 
-            let window = app.get_webview_window("main").unwrap();
+            // Initialize Hotkey Manager
+            let hotkey_manager = HotkeyManager::new();
+            app.manage(hotkey_manager);
+
+            let window = app.get_webview_window("main")
+                .expect("Main window not found - check tauri.conf.json");
 
             // Hide window initially in release mode
             #[cfg(not(debug_assertions))]
@@ -42,28 +48,23 @@ pub fn run() {
                 window.open_devtools();
             }
 
-            // Register global shortcut: Ctrl+Shift+V
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyV);
-            let window_clone = window.clone();
+            // Register default hotkey from config
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let config_mgr: tauri::State<ConfigManager> = app_handle.state();
+                let hotkey_mgr: tauri::State<HotkeyManager> = app_handle.state();
 
-            app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-                // Only respond to key press, not release
-                if event.state != ShortcutState::Pressed {
-                    return;
-                }
-                log::info!("Global shortcut triggered");
+                let hotkey_str = match config_mgr.get_config() {
+                    Ok(cfg) => cfg.hotkey,
+                    Err(_) => "Ctrl+Shift+V".to_string(),
+                };
 
-                if window_clone.is_visible().unwrap_or(false) {
-                    let _ = window_clone.hide();
+                if let Err(e) = hotkey_mgr.register_hotkey(&app_handle, &hotkey_str).await {
+                    log::error!("Failed to register hotkey '{}': {}", hotkey_str, e);
                 } else {
-                    let _ = window_clone.show();
-                    let _ = window_clone.set_focus();
-                    // Emit event to frontend to refresh clipboard
-                    let _ = window_clone.emit("panel:show", ());
+                    log::info!("Global shortcut registered: {}", hotkey_str);
                 }
-            })?;
-
-            log::info!("Global shortcut registered: Ctrl+Shift+V");
+            });
 
             Ok(())
         })
@@ -76,6 +77,7 @@ pub fn run() {
             commands::check_ollama_health,
             commands::send_ai_request,
             commands::cancel_ai_request,
+            commands::detect_content_intent,
             commands::read_clipboard,
             commands::write_clipboard,
             commands::get_config,
@@ -85,6 +87,9 @@ pub fn run() {
             commands::get_builtin_rules,
             commands::apply_rule,
             commands::apply_custom_rule,
+            commands::register_hotkey,
+            commands::unregister_hotkey,
+            commands::is_hotkey_registered,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

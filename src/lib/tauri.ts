@@ -15,6 +15,7 @@ import type {
   AIConfig,
   AppConfig,
   Rule,
+  ActionChip,
 } from '@/types'
 
 const log = createModuleLogger('tauri')
@@ -96,6 +97,8 @@ export const commands = {
     }),
   cancelAiRequest: (requestId: string) =>
     invokeCommand<void>('cancel_ai_request', { requestId }),
+  detectContentIntent: (text: string) =>
+    invokeCommand<ActionChip[]>('detect_content_intent', { text }),
 
   // Config commands
   getConfig: () => invokeCommand<AppConfig>('get_config'),
@@ -110,4 +113,10 @@ export const commands = {
     invokeCommand<string>('apply_rule', { text, ruleId }),
   applyCustomRule: (text: string, rule: Rule) =>
     invokeCommand<string>('apply_custom_rule', { text, rule }),
+
+  // Hotkey commands
+  registerHotkey: (hotkey: string) =>
+    invokeCommand<void>('register_hotkey', { hotkey }),
+  unregisterHotkey: () => invokeCommand<void>('unregister_hotkey'),
+  isHotkeyRegistered: () => invokeCommand<boolean>('is_hotkey_registered'),
 }
