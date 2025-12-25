@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 export interface PreviewProps {
   content: string
@@ -17,20 +17,21 @@ const props = withDefaults(defineProps<PreviewProps>(), {
 const displayContent = computed(() => {
   if (props.mode === 'preview') {
     const lines = props.content.split('\n')
-    return lines.slice(0, 3).join('\n')
+    // Show a few more lines for context if short, but cap it
+    return lines.slice(0, 5).join('\n')
   }
   return props.content
 })
 
 const showEllipsis = computed(() => {
   if (props.mode === 'preview') {
-    return props.content.split('\n').length > 3
+    return props.content.split('\n').length > 5
   }
   return false
 })
 
-// Streaming typewriter effect
-const cursorVisible = ref(true)
+// Streaming typewriter effect cursor
+// const cursorVisible = ref(true)
 
 const streamingDisplay = computed(() => {
   if (props.mode === 'streaming') {
@@ -39,62 +40,58 @@ const streamingDisplay = computed(() => {
   return ''
 })
 
-const contentClasses = computed(() => {
-  const base = 'text-sm font-mono whitespace-pre-wrap break-words p-3 rounded-lg overflow-y-auto'
-
-  switch (props.mode) {
-    case 'preview':
-      return `${base} text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 max-h-24`
-    case 'result':
-      return `${base} text-gray-800 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/20 max-h-64`
-    case 'streaming':
-      return `${base} text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 max-h-64`
-    default:
-      return base
+const containerClasses = computed(() => {
+  const base = 'w-full rounded-lg overflow-hidden transition-colors duration-200'
+  
+  // In spotlight design, the preview often blends in, or has very subtle background
+  if (props.mode === 'preview') {
+    return `${base} bg-gray-50/50 dark:bg-black/20`
   }
+  return `${base} bg-[var(--accent-subtle)]/30 border border-[var(--accent-primary)]/20`
+})
+
+const textClasses = computed(() => {
+  const base = 'font-mono text-sm whitespace-pre-wrap break-words p-3 overflow-y-auto custom-scrollbar'
+  
+  if (props.mode === 'preview') {
+    return `${base} text-[var(--text-secondary)] max-h-32 opacity-80`
+  }
+  // Result or Streaming
+  return `${base} text-[var(--text-primary)] max-h-[60vh]`
 })
 </script>
 
 <template>
-  <div class="preview-container">
-    <div :class="contentClasses">
+  <div :class="containerClasses">
+    <div :class="textClasses">
       <template v-if="mode === 'streaming'">
-        {{ streamingDisplay }}<span
-          v-if="cursorVisible"
-          class="inline-block w-2 h-4 bg-blue-500 ml-0.5 animate-pulse"
-        ></span>
+        {{ streamingDisplay }}<span class="inline-block w-1.5 h-4 bg-[var(--accent-primary)] ml-0.5 animate-pulse align-middle"></span>
       </template>
       <template v-else>
         {{ displayContent }}
       </template>
     </div>
 
-    <!-- Truncation indicator -->
+    <!-- Footer info for Preview -->
     <div
-      v-if="truncated || showEllipsis"
-      class="mt-1 text-xs text-gray-400 dark:text-gray-500"
+      v-if="(mode === 'preview' && showEllipsis) || truncated"
+      class="px-3 pb-2 pt-0 text-xs text-[var(--text-tertiary)] flex items-center gap-1"
     >
-      <template v-if="mode === 'preview'">
-        ... (共 {{ content.split('\n').length }} 行)
-      </template>
-      <template v-else-if="truncated">
-        ⚠️ 内容过长已截断
-      </template>
+      <span>... {{ content.split('\n').length }} lines total</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-.preview-container ::-webkit-scrollbar {
+.custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
-
-.preview-container ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.3);
-  border-radius: 2px;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
-
-.preview-container ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.5);
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary); /* fallback opacity handled via color */
+  opacity: 0.2;
+  border-radius: 4px;
 }
 </style>

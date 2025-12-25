@@ -174,7 +174,7 @@ function handleProviderChange() {
 </script>
 
 <template>
-  <div class="settings-panel p-6 bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full">
+  <div class="settings-panel p-6 bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full max-h-full overflow-y-auto">
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">设置</h2>
       <button

@@ -80,6 +80,8 @@ pub fn run() {
             commands::detect_content_intent,
             commands::read_clipboard,
             commands::write_clipboard,
+            commands::paste_to_cursor,
+            commands::check_paste_capability,
             commands::get_config,
             commands::set_config,
             commands::get_api_key,

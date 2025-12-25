@@ -66,12 +66,21 @@ export interface MaskResult {
   scanResult: PIIScanResult
 }
 
+export interface PasteResult {
+  success: boolean
+  usedSimulation: boolean
+  message?: string
+}
+
 export const commands = {
   greet: (name: string) => invokeCommand<string>('greet', { name }),
 
   // Clipboard commands
   readClipboard: () => invokeCommand<ClipboardContent>('read_clipboard'),
   writeClipboard: (text: string) => invokeCommand<void>('write_clipboard', { text }),
+  pasteToCursor: (text: string, delayMs?: number) =>
+    invokeCommand<PasteResult>('paste_to_cursor', { text, delayMs }),
+  checkPasteCapability: () => invokeCommand<void>('check_paste_capability'),
 
   // Privacy Shield commands
   scanPii: (text: string) => invokeCommand<PIIScanResult>('scan_pii', { text }),

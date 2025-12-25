@@ -142,12 +142,33 @@ export interface ClipboardChangedPayload {
 // Error Types
 // ============================================================
 export type ErrorAction = 'Retry' | 'Settings' | 'Dismiss'
+export type ErrorSeverity = 'error' | 'warning' | 'info'
 
 export interface ErrorResponse {
   code: string
   message: string
   recoverable: boolean
   action?: ErrorAction
+}
+
+export interface ErrorInfo {
+  message: string
+  code?: string
+  severity?: ErrorSeverity
+  recoverable?: boolean
+  autoHideMs?: number
+}
+
+// ============================================================
+// Action Tracking Types (for retry mechanism)
+// ============================================================
+export interface ActionSnapshot {
+  type: 'ai' | 'rule'
+  payload: string
+  timestamp: number
+  retryCount: number
+  maxRetries: number
+  lastError?: string
 }
 
 // ============================================================

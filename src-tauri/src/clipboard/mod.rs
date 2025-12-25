@@ -3,6 +3,9 @@ use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use thiserror::Error;
 
+pub mod paste;
+pub use paste::{check_paste_capability, paste_to_cursor, PasteError};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ClipboardKind {

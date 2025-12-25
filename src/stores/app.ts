@@ -9,6 +9,8 @@ import type {
   AIConfig,
   AppConfig,
   ClipboardContent,
+  ActionSnapshot,
+  ErrorInfo,
 } from '@/types'
 
 export const useAppStore = defineStore('app', () => {
@@ -33,13 +35,19 @@ export const useAppStore = defineStore('app', () => {
   // Config
   const config = ref<AppConfig | null>(null)
 
-  // Error
-  const errorMessage = ref<string | null>(null)
+  // Error & Retry (improved from review)
+  const errorInfo = ref<ErrorInfo | null>(null)
+  const lastAction = ref<ActionSnapshot | null>(null)
 
   // Computed
   const clipboardText = computed(() => clipboardContent.value?.text ?? '')
   const hasContent = computed(() => !!clipboardContent.value?.text)
   const isProcessing = computed(() => panelMode.value === 'processing')
+  const errorMessage = computed(() => errorInfo.value?.message ?? null)
+  const canRetry = computed(() => {
+    if (!lastAction.value || !errorInfo.value?.recoverable) return false
+    return lastAction.value.retryCount < lastAction.value.maxRetries
+  })
 
   // Panel Actions
   async function showPanel() {
@@ -54,7 +62,7 @@ export const useAppStore = defineStore('app', () => {
     }
     isVisible.value = false
     panelMode.value = 'idle'
-    errorMessage.value = null
+    clearError()
   }
 
   // Clipboard Actions
@@ -93,18 +101,24 @@ export const useAppStore = defineStore('app', () => {
   async function processWithRule(ruleId: string) {
     if (!clipboardText.value) return
 
+    // Track action for retry
+    recordAction('rule', ruleId)
+
     startProcessing()
     try {
       const result = await commands.applyRule(clipboardText.value, ruleId)
       finishProcessing(result)
     } catch (e) {
-      setError(`Rule processing failed: ${e}`)
+      setError(`Rule processing failed: ${e}`, true)
     }
   }
 
   // AI Processing
   async function processWithAI(prompt: string, aiConfig?: Partial<AIConfig>) {
     if (!clipboardText.value) return
+
+    // Track action for retry
+    recordAction('ai', prompt)
 
     startProcessing()
     const requestId = crypto.randomUUID()
@@ -135,7 +149,7 @@ export const useAppStore = defineStore('app', () => {
 
       await commands.sendAiRequest(fullPrompt, fullConfig, requestId, usePrivacyShield)
     } catch (e) {
-      setError(`AI request failed: ${e}`)
+      setError(`AI request failed: ${e}`, true)
       currentRequestId.value = null
     }
   }
@@ -158,11 +172,29 @@ export const useAppStore = defineStore('app', () => {
     if (!contentToPaste) return
 
     try {
-      await commands.writeClipboard(contentToPaste)
-      hidePanel()
-      reset()
+      // Use paste-to-cursor with keyboard simulation
+      const result = await commands.pasteToCursor(contentToPaste)
+
+      if (result.success) {
+        if (!result.usedSimulation && result.message) {
+          // Fallback was used, show info message
+          setError(result.message, false)
+          // Still hide after a delay since content is in clipboard
+          setTimeout(() => {
+            hidePanel()
+            reset()
+          }, 1500)
+        } else {
+          // Full success with simulation
+          hidePanel()
+          reset()
+        }
+      } else {
+        // Complete failure
+        setError(result.message || 'Failed to paste', false)
+      }
     } catch (e) {
-      setError(`Failed to paste: ${e}`)
+      setError(`Failed to paste: ${e}`, false)
     }
   }
 
@@ -189,7 +221,7 @@ export const useAppStore = defineStore('app', () => {
     panelMode.value = 'processing'
     streamingContent.value = ''
     processedContent.value = ''
-    errorMessage.value = null
+    clearError()
   }
 
   function appendStreamContent(content: string) {
@@ -201,12 +233,56 @@ export const useAppStore = defineStore('app', () => {
     panelMode.value = 'result'
     streamingContent.value = ''
     currentRequestId.value = null
+    // Clear action tracking on success
+    lastAction.value = null
   }
 
-  function setError(message: string) {
-    errorMessage.value = message
+  // Action tracking for retry mechanism
+  function recordAction(type: 'ai' | 'rule', payload: string) {
+    lastAction.value = {
+      type,
+      payload,
+      timestamp: Date.now(),
+      retryCount: lastAction.value?.payload === payload ? (lastAction.value.retryCount) : 0,
+      maxRetries: 3,
+    }
+  }
+
+  function setError(message: string, recoverable = false) {
+    errorInfo.value = {
+      message,
+      recoverable,
+      severity: 'error',
+    }
     panelMode.value = 'preview'
     currentRequestId.value = null
+
+    // Update last action with error
+    if (lastAction.value) {
+      lastAction.value.lastError = message
+    }
+  }
+
+  function clearError() {
+    errorInfo.value = null
+  }
+
+  // Retry mechanism with exponential backoff
+  async function retryLastAction() {
+    if (!lastAction.value || !canRetry.value) return
+
+    clearError()
+    lastAction.value.retryCount++
+
+    // Exponential backoff: 1s, 2s, 4s
+    const backoffMs = 1000 * Math.pow(2, lastAction.value.retryCount - 1)
+    await new Promise(resolve => setTimeout(resolve, Math.min(backoffMs, 4000)))
+
+    if (lastAction.value.type === 'ai') {
+      await processWithAI(lastAction.value.payload)
+    } else if (lastAction.value.type === 'rule') {
+      await processWithRule(lastAction.value.payload)
+    }
   }
 
   function reset() {
@@ -217,7 +293,8 @@ export const useAppStore = defineStore('app', () => {
     selectedChipIndex.value = 0
     privacyStatus.value = { type: 'local' }
     maskedMapping.value = { mappings: {} }
-    errorMessage.value = null
+    errorInfo.value = null
+    lastAction.value = null
     panelMode.value = 'idle'
     currentRequestId.value = null
   }
@@ -235,7 +312,13 @@ export const useAppStore = defineStore('app', () => {
 
   function handleAIError(payload: { code: string; message: string; requestId: string }) {
     if (payload.requestId !== currentRequestId.value) return
-    setError(`AI Error [${payload.code}]: ${payload.message}`)
+
+    // AI errors are typically recoverable (network, timeout, etc.)
+    // Only non-recoverable for config/model issues
+    const nonRecoverableCodes = ['invalid_config', 'model_not_found', 'invalid_api_key']
+    const isRecoverable = !nonRecoverableCodes.includes(payload.code)
+
+    setError(`AI Error [${payload.code}]: ${payload.message}`, isRecoverable)
   }
 
   return {
@@ -252,10 +335,13 @@ export const useAppStore = defineStore('app', () => {
     maskedMapping,
     currentRequestId,
     errorMessage,
+    errorInfo,
+    lastAction,
     config,
     // Computed
     hasContent,
     isProcessing,
+    canRetry,
     // Panel Actions
     showPanel,
     hidePanel,
@@ -274,6 +360,8 @@ export const useAppStore = defineStore('app', () => {
     appendStreamContent,
     finishProcessing,
     setError,
+    clearError,
+    retryLastAction,
     reset,
     // Event Handlers
     handleAIChunk,

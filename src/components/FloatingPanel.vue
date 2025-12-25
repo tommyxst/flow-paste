@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { useThemeProvider } from '@/composables/useTheme'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
+import { Search, Settings, Loader2, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-vue-next'
 import Preview from './Preview.vue'
 import ActionChips from './ActionChips.vue'
 import SettingsPanel from './SettingsPanel.vue'
+import ErrorDisplay from './ErrorDisplay.vue'
 import type { ActionChip } from '@/types'
 
 const store = useAppStore()
+
+// Initialize theme detection
+useThemeProvider()
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const commandInput = ref('')
@@ -43,32 +49,8 @@ async function startDrag() {
   setTimeout(() => { isDragging.value = false }, 200)
 }
 
-async function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showSettings.value) {
-      showSettings.value = false
-      return
-    }
-    if (store.isProcessing) {
-      store.cancelAI()
-    } else {
-      await hideWindow()
-    }
-  } else if (e.key === 'Enter' && !e.shiftKey && !showSettings.value) {
-    // Only handle Enter if not from input field (avoid double submit)
-    if (e.target instanceof HTMLInputElement) {
-      e.preventDefault()
-      handleSubmit()
-    }
-  } else if (e.key === ',' && e.ctrlKey) {
-    e.preventDefault()
-    showSettings.value = !showSettings.value
-  }
-}
-
 function handleSubmit() {
   if (!commandInput.value.trim()) {
-    // If no command, confirm paste
     if (store.panelMode === 'result') {
       confirmAndClose()
     }
@@ -94,6 +76,34 @@ function handleChipSelect(chip: ActionChip) {
 function handleSettingsClose() {
   showSettings.value = false
   inputRef.value?.focus()
+}
+
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === ',' && e.ctrlKey) {
+    e.preventDefault()
+    showSettings.value = !showSettings.value
+    return
+  }
+
+  if (e.key === 'Escape') {
+    if (showSettings.value) {
+      showSettings.value = false
+      return
+    }
+    if (store.isProcessing) {
+      store.cancelAI()
+    } else {
+      hideWindow()
+    }
+    return
+  }
+
+  if (e.key === 'Enter' && !e.shiftKey && !showSettings.value) {
+    if (e.target instanceof HTMLInputElement) {
+      e.preventDefault()
+      handleSubmit()
+    }
+  }
 }
 
 onMounted(async () => {
@@ -126,6 +136,8 @@ onMounted(async () => {
   unlistenAIError = await listen<{ code: string; message: string; requestId: string }>('ai:error', (event) => {
     store.handleAIError(event.payload)
   })
+
+  window.addEventListener('keydown', handleGlobalKeydown)
 })
 
 onUnmounted(() => {
@@ -133,64 +145,46 @@ onUnmounted(() => {
   unlistenShow?.()
   unlistenAIChunk?.()
   unlistenAIError?.()
+  window.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
 
 <template>
   <div
     v-if="!showSettings"
-    class="floating-panel w-full h-full flex flex-col rounded-xl overflow-hidden"
-    style="background: var(--panel-bg); border: 1px solid var(--panel-border)"
+    class="floating-panel w-full flex flex-col rounded-xl overflow-hidden animate-scale-in"
   >
-    <!-- Drag Handle -->
-    <div
-      class="drag-handle h-6 flex items-center justify-center cursor-move shrink-0"
+    <!-- Header Input Area -->
+    <div 
+      class="flex items-center px-4 py-3 gap-3 border-b border-gray-100/10"
       @mousedown="startDrag"
     >
-      <div class="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-    </div>
-
-    <!-- Header: Input -->
-    <div class="px-4 pb-2">
+      <Search class="w-5 h-5 text-[var(--accent-primary)] shrink-0" v-if="!store.isProcessing" />
+      <Loader2 class="w-5 h-5 text-[var(--accent-primary)] animate-spin shrink-0" v-else />
+      
       <input
         ref="inputRef"
         v-model="commandInput"
         type="text"
-        class="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-        placeholder="输入处理指令（如：翻译成英文、总结要点）..."
+        class="flex-1 bg-transparent text-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none min-w-0 font-medium"
+        placeholder="Describe format..."
         :disabled="store.isProcessing"
-        @keydown="handleKeydown"
       />
+      
+      <div class="flex items-center gap-2 shrink-0">
+        <div 
+           class="px-2 py-1 rounded text-xs font-medium bg-gray-100/50 dark:bg-white/5 text-[var(--text-secondary)] border border-[var(--panel-border)]"
+           v-if="store.clipboardText"
+        >
+          {{ store.clipboardText.length }} chars
+        </div>
+      </div>
     </div>
 
-    <!-- Content Area -->
-    <div class="flex-1 px-4 py-2 overflow-hidden flex flex-col">
-      <!-- Preview -->
-      <div class="preview-section flex-1 min-h-0 mb-3">
-        <div class="flex items-center justify-between mb-2">
-          <div class="text-xs text-gray-500">
-            <template v-if="store.panelMode === 'processing'">AI 处理中...</template>
-            <template v-else-if="store.panelMode === 'result'">处理结果</template>
-            <template v-else>剪贴板内容</template>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-400">{{ store.clipboardText.length }} 字符</span>
-            <button
-              v-if="store.isProcessing"
-              @click="store.cancelAI"
-              class="text-xs text-red-500 hover:text-red-600"
-            >
-              取消
-            </button>
-            <button
-              v-else
-              @click="store.refreshClipboard"
-              class="text-xs text-blue-500 hover:text-blue-600"
-            >
-              刷新
-            </button>
-          </div>
-        </div>
+    <!-- Main Content -->
+    <div class="flex-col flex">
+      <!-- Preview / Result Area -->
+      <div class="px-4 py-3">
         <Preview
           :content="previewContent"
           :mode="previewMode"
@@ -198,91 +192,78 @@ onUnmounted(() => {
       </div>
 
       <!-- Action Chips -->
-      <ActionChips
+      <div 
+        class="px-4 pb-3"
         v-if="!store.isProcessing && store.actionChips.length > 0"
-        :chips="store.actionChips"
-        :selected-index="store.selectedChipIndex"
-        @select="handleChipSelect"
-        class="mb-3"
-      />
+      >
+        <ActionChips
+          :chips="store.actionChips"
+          :selected-index="store.selectedChipIndex"
+          @select="handleChipSelect"
+        />
+      </div>
+      
+      <!-- Result Confirmation Actions -->
+      <div class="px-4 pb-3 pt-1 border-t border-[var(--panel-border)] bg-gray-50/30 dark:bg-black/10 flex justify-between items-center" v-if="store.panelMode === 'result'">
+         <div class="text-xs text-[var(--text-secondary)]">Press <span class="font-bold">Enter</span> to paste</div>
+         <div class="flex gap-2">
+            <button 
+              @click="store.reset(); store.refreshClipboard()"
+              class="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded text-[var(--text-tertiary)] transition-colors"
+              title="Reset"
+            >
+              <RefreshCw class="w-4 h-4" />
+            </button>
+         </div>
+      </div>
 
-      <!-- Result Actions -->
-      <div class="mb-3" v-if="store.panelMode === 'result'">
-        <div class="flex gap-2">
-          <button
-            @click="confirmAndClose"
-            class="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            确认并粘贴 (Enter)
-          </button>
-          <button
-            @click="store.reset(); store.refreshClipboard()"
-            class="px-3 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          >
-            重置
-          </button>
+      <!-- Footer / Status Bar -->
+      <div class="px-4 py-2 bg-gray-50/50 dark:bg-black/20 border-t border-[var(--panel-border)] flex justify-between items-center text-xs text-[var(--text-tertiary)] select-none">
+        
+        <!-- Privacy Status -->
+        <div class="flex items-center gap-1.5" :class="store.privacyStatus.type === 'cloud-safe' ? 'text-emerald-500' : 'text-amber-500'">
+          <ShieldCheck v-if="store.privacyStatus.type === 'cloud-safe'" class="w-3.5 h-3.5" />
+          <ShieldAlert v-else class="w-3.5 h-3.5" />
+          <span class="font-medium">
+             {{ store.privacyStatus.type === 'cloud-safe' ? 'Secure Mode' : `PII Masked (${store.privacyStatus.maskedCount})` }}
+          </span>
+        </div>
+
+        <div class="flex items-center gap-3">
+           <button 
+             @click="showSettings = true" 
+             class="hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+           >
+             <Settings class="w-3.5 h-3.5" />
+           </button>
         </div>
       </div>
-
-      <!-- Error Display -->
-      <div v-if="store.errorMessage" class="mb-3 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg animate-shake">
-        <span class="text-sm text-red-600 dark:text-red-400">{{ store.errorMessage }}</span>
-      </div>
     </div>
 
-    <!-- Footer: Status -->
-    <div class="px-4 py-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-      <div class="text-xs text-gray-400">
-        {{ store.isProcessing ? 'ESC 取消' : 'ESC 关闭' }} · Ctrl+, 设置
-      </div>
-      <div class="flex items-center gap-2">
-        <span
-          v-if="store.privacyStatus.type !== 'local'"
-          class="text-xs px-2 py-0.5 rounded-full"
-          :class="store.privacyStatus.type === 'cloud-safe' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400'"
-        >
-          {{ store.privacyStatus.type === 'cloud-safe' ? '云端安全' : `已脱敏 ${store.privacyStatus.maskedCount}项` }}
-        </span>
-        <span class="text-xs text-gray-500">FlowPaste v0.1.0</span>
-      </div>
-    </div>
+     <!-- Error Display -->
+      <ErrorDisplay
+        v-if="store.errorInfo"
+        :error="store.errorInfo"
+        :retry-count="store.lastAction?.retryCount ?? 0"
+        :max-retries="store.lastAction?.maxRetries ?? 3"
+        @retry="store.retryLastAction()"
+        @dismiss="store.clearError()"
+        class="absolute bottom-12 left-4 right-4"
+      />
   </div>
 
   <!-- Settings Panel Overlay -->
-  <div v-else class="w-full h-full flex items-center justify-center bg-gray-900/50">
-    <SettingsPanel @close="handleSettingsClose" />
+  <div v-else class="w-full h-full flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+    <SettingsPanel @close="handleSettingsClose" class="max-h-full w-full max-w-lg shadow-2xl" />
   </div>
 </template>
 
 <style scoped>
 .floating-panel {
-  animation: fadeIn 150ms ease-out;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
-}
-
-.animate-shake {
-  animation: shake 0.3s ease-in-out;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  background: var(--panel-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.3);
 }
 </style>

@@ -234,30 +234,26 @@
 
 ## Phase 4: Integration & Polish
 
-- [ ] 27. Implement Paste-to-Cursor Functionality
-  - File: `src-tauri/src/clipboard/manager.rs` (extend)
-  - Implement keyboard simulation for pasting at cursor
-  - Support both keyboard simulation and clipboard API
-  - Handle permission failures gracefully
-  - _Leverage: enigo crate or platform APIs_
-  - _Requirements: REQ-03, REQ-15_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Rust Developer with systems programming expertise | Task: Extend clipboard manager - implement paste_to_cursor(text) that writes to clipboard then simulates Ctrl/Cmd+V keystroke using enigo crate, handle platform differences (Windows/macOS), fallback to clipboard-only if simulation fails due to permissions | Restrictions: Must work across different applications, handle focus properly, graceful degradation on permission failure | _Leverage: enigo crate | Success: Text pastes at cursor position in target app, fallback works | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+- [x] 27. Implement Paste-to-Cursor Functionality
+  - Files: `src-tauri/src/clipboard/paste.rs`, `src-tauri/src/commands/clipboard.rs`
+  - Implemented keyboard simulation using enigo crate with RAII ModifierGuard pattern
+  - Platform-specific handling (Windows Ctrl+V, macOS Cmd+V, Linux X11/Wayland detection)
+  - Graceful fallback to clipboard-only mode on permission/simulation failures
+  - _Completed: paste_to_cursor with configurable delay, check_paste_capability, PasteResult with fallback info_
 
-- [ ] 28. Implement Dark/Light Mode Support
-  - Files: `src/App.vue`, `tailwind.config.js`
-  - Detect system theme preference
-  - Apply dark/light styles throughout UI
-  - _Leverage: TailwindCSS dark mode, Tauri theme API_
-  - _Requirements: UI Design 4.1_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Frontend Developer | Task: Implement theme support - configure Tailwind darkMode: 'class', detect system preference via window.matchMedia or Tauri theme API, apply dark class to html element, ensure all components use dark: variants | Restrictions: Respect system preference, smooth transition when theme changes | _Leverage: TailwindCSS, prefers-color-scheme | Success: UI correctly follows system theme | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+- [x] 28. Implement Dark/Light Mode Support
+  - Files: `src/composables/useTheme.ts`, `src/styles/main.css`
+  - System theme detection with matchMedia listener and memory leak prevention
+  - CSS custom properties for light/dark themes with status colors (error/warning/success)
+  - prefers-reduced-motion accessibility support
+  - _Completed: useTheme composable with singleton pattern, dark mode CSS variables, animation controls_
 
-- [ ] 29. Add Error Handling UI
-  - File: `src/components/ErrorDisplay.vue` (new)
-  - Create error display component with shake animation
-  - Handle retry and dismiss actions
-  - _Leverage: TailwindCSS animations_
-  - _Requirements: UI Design 4.3_
-  - _Prompt: Implement the task for spec flow-paste, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Vue Developer | Task: Implement ErrorDisplay.vue - props (error: ErrorResponse), show red error message, shake animation on appear, retry button if error.recoverable, dismiss button, emit retry/dismiss events | Restrictions: Non-blocking (user can still close panel) | _Leverage: TailwindCSS animate-shake | Success: Errors display clearly with appropriate actions | Before starting: Mark this task as [-] in tasks.md | After completion: Use log-implementation tool to record artifacts, then mark as [x] in tasks.md_
+- [x] 29. Add Error Handling UI
+  - Files: `src/components/ErrorDisplay.vue`, `src/stores/app.ts`, `src/types/index.ts`
+  - Error display with severity levels (error/warning/info) and auto-hide
+  - Retry mechanism with exponential backoff (1s → 2s → 4s, max 3 retries)
+  - Action tracking with ActionSnapshot for recoverable errors
+  - _Completed: ErrorDisplay component with shake animation, retry counter, app.ts retry logic, ErrorInfo/ActionSnapshot types_
 
 ---
 
