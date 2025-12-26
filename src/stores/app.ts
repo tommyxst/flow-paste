@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { commands } from '@/lib/tauri'
 import type {
   ActionChip,
@@ -114,17 +115,27 @@ export const useAppStore = defineStore('app', () => {
       const result = await commands.applyRule(baseText, ruleId)
       finishProcessing(result)
 
-      // Optimistic paste: write to clipboard and paste to cursor, keep window open (Bug 1 & 2 fix)
-      try {
-        clipboardContent.value = { kind: 'text', text: result }
-        await commands.writeClipboard(result)
+      // Write to clipboard first
+      clipboardContent.value = { kind: 'text', text: result }
+      await commands.writeClipboard(result)
 
-        const pasteResult = await commands.pasteToCursor(result)
-        if (!pasteResult.success) {
-          setError(pasteResult.message || 'Failed to paste', false)
-        }
-      } catch (pasteError) {
-        setError(`Failed to paste: ${pasteError}`, false)
+      // Hide window and wait for focus to transfer before pasting
+      const appWindow = getCurrentWindow()
+      await appWindow.hide()
+      isVisible.value = false
+
+      // Wait for window to fully hide and focus to transfer
+      await new Promise(resolve => setTimeout(resolve, 150))
+
+      // Now paste to cursor
+      const pasteResult = await commands.pasteToCursor(result)
+      if (!pasteResult.success) {
+        // Show window again to display error
+        await appWindow.show()
+        isVisible.value = true
+        setError(pasteResult.message || 'Failed to paste', false)
+      } else {
+        reset()
       }
     } catch (e) {
       setError(`Rule processing failed: ${e}`, true)
