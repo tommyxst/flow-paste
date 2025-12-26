@@ -99,15 +99,33 @@ export const useAppStore = defineStore('app', () => {
 
   // Rule Processing
   async function processWithRule(ruleId: string) {
-    if (!clipboardText.value) return
+    // Use processed text if available, support chain formatting (Bug 3 fix)
+    const baseText = processedContent.value || clipboardText.value
+    if (!baseText) return
+
+    // Guard against concurrent clicks (Code review fix)
+    if (isProcessing.value) return
 
     // Track action for retry
     recordAction('rule', ruleId)
 
     startProcessing()
     try {
-      const result = await commands.applyRule(clipboardText.value, ruleId)
+      const result = await commands.applyRule(baseText, ruleId)
       finishProcessing(result)
+
+      // Optimistic paste: write to clipboard and paste to cursor, keep window open (Bug 1 & 2 fix)
+      try {
+        clipboardContent.value = { kind: 'text', text: result }
+        await commands.writeClipboard(result)
+
+        const pasteResult = await commands.pasteToCursor(result)
+        if (!pasteResult.success) {
+          setError(pasteResult.message || 'Failed to paste', false)
+        }
+      } catch (pasteError) {
+        setError(`Failed to paste: ${pasteError}`, false)
+      }
     } catch (e) {
       setError(`Rule processing failed: ${e}`, true)
     }
