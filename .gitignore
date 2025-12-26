@@ -32,3 +32,4 @@ src-tauri/Cargo.lock
 .vite/
 *.tsbuildinfo
 node_modules
+.ace-tool/

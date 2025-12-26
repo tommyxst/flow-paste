@@ -201,3 +201,22 @@ export interface TauriCommands {
   applyRule: (text: string, ruleId: string) => Promise<string>
   getBuiltinRules: () => Promise<Rule[]>
 }
+
+// ============================================================
+// Performance Types
+// ============================================================
+export interface PerfMetric {
+  name: string
+  valueMs?: number
+  valueMb?: number
+  target: number
+  status: 'PASS' | 'FAIL' | 'WARN' | 'NOT_MEASURED'
+}
+
+export interface PerfReport {
+  meta: {
+    timestamp: number
+    platform: string
+  }
+  metrics: PerfMetric[]
+}

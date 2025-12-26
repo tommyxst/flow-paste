@@ -8,10 +8,12 @@ mod clipboard;
 mod config;
 mod regex;
 mod hotkey;
+mod performance;
 
 use commands::AIState;
 use config::ConfigManager;
 use hotkey::HotkeyManager;
+use performance::PerfState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,6 +23,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .manage(PerfState::default())
         .manage(Arc::new(AIState::default()))
         .setup(|app| {
             log::info!("FlowPaste starting...");
@@ -91,6 +94,8 @@ pub fn run() {
             commands::apply_custom_rule,
             commands::register_hotkey,
             commands::unregister_hotkey,
+            performance::report_render_timestamp,
+            performance::run_perf_suite,
             commands::is_hotkey_registered,
         ])
         .run(tauri::generate_context!())

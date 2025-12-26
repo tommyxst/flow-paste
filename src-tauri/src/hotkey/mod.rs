@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tokio::sync::Mutex;
+use crate::performance::PerfState;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -107,6 +108,9 @@ impl HotkeyManager {
                                 log::error!("Failed to hide window: {}", e);
                             }
                         } else {
+                            // Performance: Start timer only when showing panel (code review fix)
+                            _app.state::<PerfState>().start_timer();
+
                             if let Err(e) = window_clone.show() {
                                 log::error!("Failed to show window: {}", e);
                             }

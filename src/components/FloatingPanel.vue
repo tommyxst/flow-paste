@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { useThemeProvider } from '@/composables/useTheme'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Search, Settings, Loader2, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-vue-next'
 import Preview from './Preview.vue'
@@ -122,11 +123,15 @@ onMounted(async () => {
     }
   })
 
-  unlistenShow = await listen('panel:show', () => {
+  unlistenShow = await listen('panel:show', async () => {
     store.reset()
     store.showPanel()
     showSettings.value = false
     inputRef.value?.focus()
+
+    // Performance: Report render completion (code review fix: wait for Vue DOM updates)
+    await nextTick()
+    requestAnimationFrame(() => invoke('report_render_timestamp'))
   })
 
   unlistenAIChunk = await listen<{ content: string; done: boolean; requestId: string }>('ai:chunk', (event) => {

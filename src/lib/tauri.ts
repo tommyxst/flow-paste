@@ -15,6 +15,7 @@ import type {
   AIConfig,
   AppConfig,
   Rule,
+  PerfReport,
   ActionChip,
 } from '@/types'
 
@@ -128,4 +129,8 @@ export const commands = {
     invokeCommand<void>('register_hotkey', { hotkey }),
   unregisterHotkey: () => invokeCommand<void>('unregister_hotkey'),
   isHotkeyRegistered: () => invokeCommand<boolean>('is_hotkey_registered'),
+
+  // Performance commands
+  reportRenderTimestamp: () => invokeCommand<void>('report_render_timestamp'),
+  runPerfSuite: () => invokeCommand<PerfReport>('run_perf_suite'),
 }
