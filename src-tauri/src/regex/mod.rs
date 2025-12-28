@@ -1,12 +1,28 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
 const RULE_TIMEOUT_MS: u64 = 50;
-const MAX_OUTPUT_SIZE: usize = 10 * 1024 * 1024; // 10MB
+const MAX_OUTPUT_SIZE: usize = 10 * 1024 * 1024;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransformationType {
+    RegexReplace,
+    JsonFormat,
+    JsonMinify,
+    SortLines,
+    DedupeLines,
+}
+
+impl Default for TransformationType {
+    fn default() -> Self {
+        Self::RegexReplace
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,7 +30,11 @@ pub struct Rule {
     pub id: String,
     pub name: String,
     pub description: String,
+    #[serde(default)]
+    pub transformation_type: TransformationType,
+    #[serde(default)]
     pub pattern: String,
+    #[serde(default)]
     pub replacement: String,
     pub is_builtin: bool,
 }
@@ -29,61 +49,96 @@ pub enum RegexError {
     Timeout,
     #[error("output exceeds size limit")]
     OutputTooLarge,
+    #[error("invalid JSON: {0}")]
+    InvalidJson(String),
 }
 
 struct CompiledRule {
     rule: Rule,
-    regex: Regex,
+    regex: Option<Regex>,
 }
 
 static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
     let rules = vec![
         Rule {
+            id: "trim_whitespace".to_string(),
+            name: "去首尾空格".to_string(),
+            description: "Trim leading and trailing whitespace from each line".to_string(),
+            transformation_type: TransformationType::RegexReplace,
+            pattern: r"(?m)^[ \t]+|[ \t]+$".to_string(),
+            replacement: String::new(),
+            is_builtin: true,
+        },
+        Rule {
             id: "remove_empty_lines".to_string(),
-            name: "Remove Empty Lines".to_string(),
+            name: "去空行".to_string(),
             description: "Remove consecutive empty lines".to_string(),
+            transformation_type: TransformationType::RegexReplace,
             pattern: r"\n\s*\n+".to_string(),
             replacement: "\n".to_string(),
             is_builtin: true,
         },
         Rule {
-            id: "trim_whitespace".to_string(),
-            name: "Trim Whitespace".to_string(),
-            description: "Remove leading/trailing whitespace from each line".to_string(),
-            pattern: r"(?m)^[ \t]+|[ \t]+$".to_string(),
-            replacement: "".to_string(),
+            id: "collapse_spaces".to_string(),
+            name: "合并空格".to_string(),
+            description: "Collapse multiple spaces into one".to_string(),
+            transformation_type: TransformationType::RegexReplace,
+            pattern: r"[ \t]{2,}".to_string(),
+            replacement: " ".to_string(),
             is_builtin: true,
         },
         Rule {
             id: "cjk_spacing".to_string(),
-            name: "CJK Spacing".to_string(),
+            name: "CJK/英文间距".to_string(),
             description: "Add space between CJK and Western characters".to_string(),
-            pattern: r"([\p{Han}\p{Hiragana}\p{Katakana}])([A-Za-z0-9])".to_string(),
-            replacement: "$1 $2".to_string(),
-            is_builtin: true,
-        },
-        Rule {
-            id: "cjk_spacing_reverse".to_string(),
-            name: "CJK Spacing Reverse".to_string(),
-            description: "Add space between Western and CJK characters".to_string(),
-            pattern: r"([A-Za-z0-9])([\p{Han}\p{Hiragana}\p{Katakana}])".to_string(),
-            replacement: "$1 $2".to_string(),
+            transformation_type: TransformationType::RegexReplace,
+            pattern: r"([\p{Han}\p{Hiragana}\p{Katakana}])([A-Za-z0-9])|([A-Za-z0-9])([\p{Han}\p{Hiragana}\p{Katakana}])".to_string(),
+            replacement: "$1$3 $2$4".to_string(),
             is_builtin: true,
         },
         Rule {
             id: "to_plain_text".to_string(),
-            name: "To Plain Text".to_string(),
+            name: "转纯文本".to_string(),
             description: "Remove markdown/HTML formatting".to_string(),
+            transformation_type: TransformationType::RegexReplace,
             pattern: r"(\*\*|__|~~|`|<[^>]+>|\[([^\]]+)\]\([^)]+\))".to_string(),
             replacement: "$2".to_string(),
             is_builtin: true,
         },
         Rule {
-            id: "collapse_spaces".to_string(),
-            name: "Collapse Spaces".to_string(),
-            description: "Replace multiple spaces with single space".to_string(),
-            pattern: r"[ \t]+".to_string(),
-            replacement: " ".to_string(),
+            id: "format_json".to_string(),
+            name: "格式化 JSON".to_string(),
+            description: "Format JSON with indentation".to_string(),
+            transformation_type: TransformationType::JsonFormat,
+            pattern: String::new(),
+            replacement: String::new(),
+            is_builtin: true,
+        },
+        Rule {
+            id: "minify_json".to_string(),
+            name: "压缩 JSON".to_string(),
+            description: "Minify JSON to single line".to_string(),
+            transformation_type: TransformationType::JsonMinify,
+            pattern: String::new(),
+            replacement: String::new(),
+            is_builtin: true,
+        },
+        Rule {
+            id: "sort_lines".to_string(),
+            name: "行排序".to_string(),
+            description: "Sort lines alphabetically".to_string(),
+            transformation_type: TransformationType::SortLines,
+            pattern: String::new(),
+            replacement: String::new(),
+            is_builtin: true,
+        },
+        Rule {
+            id: "dedupe_lines".to_string(),
+            name: "行去重".to_string(),
+            description: "Remove duplicate lines".to_string(),
+            transformation_type: TransformationType::DedupeLines,
+            pattern: String::new(),
+            replacement: String::new(),
             is_builtin: true,
         },
     ];
@@ -91,12 +146,17 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
     rules
         .into_iter()
         .filter_map(|rule| {
-            match Regex::new(&rule.pattern) {
-                Ok(regex) => Some(CompiledRule { rule, regex }),
-                Err(e) => {
-                    log::error!("Failed to compile builtin rule '{}': {}", rule.id, e);
-                    None
+            match rule.transformation_type {
+                TransformationType::RegexReplace => {
+                    match Regex::new(&rule.pattern) {
+                        Ok(regex) => Some(CompiledRule { rule, regex: Some(regex) }),
+                        Err(e) => {
+                            log::error!("Failed to compile builtin rule '{}': {}", rule.id, e);
+                            None
+                        }
+                    }
                 }
+                _ => Some(CompiledRule { rule, regex: None }),
             }
         })
         .collect()
@@ -118,28 +178,77 @@ pub fn apply_rule(text: &str, rule_id: &str) -> Result<String, RegexError> {
     let idx = RULE_INDEX
         .get(rule_id)
         .ok_or_else(|| RegexError::RuleNotFound(rule_id.to_string()))?;
-
     let compiled = &BUILTIN_RULES[*idx];
     apply_compiled_rule(text, compiled)
 }
 
 pub fn apply_custom_rule(text: &str, rule: &Rule) -> Result<String, RegexError> {
-    let regex = Regex::new(&rule.pattern).map_err(|e| RegexError::InvalidPattern(e.to_string()))?;
-    let compiled = CompiledRule {
-        rule: rule.clone(),
-        regex,
-    };
-    apply_compiled_rule(text, &compiled)
+    match rule.transformation_type {
+        TransformationType::RegexReplace => {
+            let regex = Regex::new(&rule.pattern)
+                .map_err(|e| RegexError::InvalidPattern(e.to_string()))?;
+            let compiled = CompiledRule { rule: rule.clone(), regex: Some(regex) };
+            apply_compiled_rule(text, &compiled)
+        }
+        _ => {
+            let compiled = CompiledRule { rule: rule.clone(), regex: None };
+            apply_compiled_rule(text, &compiled)
+        }
+    }
 }
 
 fn apply_compiled_rule(text: &str, compiled: &CompiledRule) -> Result<String, RegexError> {
+    match compiled.rule.transformation_type {
+        TransformationType::JsonFormat => format_json(text),
+        TransformationType::JsonMinify => minify_json(text),
+        TransformationType::SortLines => Ok(sort_lines(text)),
+        TransformationType::DedupeLines => Ok(dedupe_lines(text)),
+        TransformationType::RegexReplace => apply_regex_rule(text, compiled),
+    }
+}
+
+fn format_json(text: &str) -> Result<String, RegexError> {
+    let value: serde_json::Value = serde_json::from_str(text)
+        .map_err(|e| RegexError::InvalidJson(e.to_string()))?;
+    serde_json::to_string_pretty(&value)
+        .map_err(|e| RegexError::InvalidJson(e.to_string()))
+}
+
+fn minify_json(text: &str) -> Result<String, RegexError> {
+    let value: serde_json::Value = serde_json::from_str(text)
+        .map_err(|e| RegexError::InvalidJson(e.to_string()))?;
+    serde_json::to_string(&value)
+        .map_err(|e| RegexError::InvalidJson(e.to_string()))
+}
+
+fn sort_lines(text: &str) -> String {
+    let mut lines: Vec<&str> = text.lines().collect();
+    lines.sort();
+    lines.join("\n")
+}
+
+fn dedupe_lines(text: &str) -> String {
+    let mut seen = HashSet::new();
+    let mut result = Vec::new();
+    for line in text.lines() {
+        if seen.insert(line) {
+            result.push(line);
+        }
+    }
+    result.join("\n")
+}
+
+fn apply_regex_rule(text: &str, compiled: &CompiledRule) -> Result<String, RegexError> {
+    let regex = compiled.regex.as_ref()
+        .ok_or_else(|| RegexError::InvalidPattern("No regex for regex rule".to_string()))?;
+
     let start = Instant::now();
     let timeout = Duration::from_millis(RULE_TIMEOUT_MS);
 
     let mut result = String::with_capacity(text.len());
     let mut last_end = 0;
 
-    for cap in compiled.regex.captures_iter(text) {
+    for cap in regex.captures_iter(text) {
         if start.elapsed() > timeout {
             log::warn!("Rule '{}' timed out after {}ms", compiled.rule.id, RULE_TIMEOUT_MS);
             return Err(RegexError::Timeout);
@@ -147,13 +256,9 @@ fn apply_compiled_rule(text: &str, compiled: &CompiledRule) -> Result<String, Re
 
         let full_match = cap.get(0).unwrap();
         result.push_str(&text[last_end..full_match.start()]);
-
-        // Use expand() for efficient replacement with capture groups
         cap.expand(&compiled.rule.replacement, &mut result);
-
         last_end = full_match.end();
 
-        // Check output size limit
         if result.len() > MAX_OUTPUT_SIZE {
             log::warn!("Rule '{}' output exceeded size limit", compiled.rule.id);
             return Err(RegexError::OutputTooLarge);
@@ -183,14 +288,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cjk_spacing() {
-        let text = "中文English混合";
-        let result = apply_rule(text, "cjk_spacing").unwrap();
-        let result = apply_rule(&result, "cjk_spacing_reverse").unwrap();
-        assert_eq!(result, "中文 English 混合");
-    }
-
-    #[test]
     fn test_collapse_spaces() {
         let text = "hello    world";
         let result = apply_rule(text, "collapse_spaces").unwrap();
@@ -198,10 +295,45 @@ mod tests {
     }
 
     #[test]
+    fn test_cjk_spacing() {
+        let text = "中文English混合";
+        let result = apply_rule(text, "cjk_spacing").unwrap();
+        assert_eq!(result, "中文 English 混合");
+    }
+
+    #[test]
     fn test_to_plain_text() {
         let text = "**bold** and [link](url)";
         let result = apply_rule(text, "to_plain_text").unwrap();
         assert_eq!(result, "bold and link");
+    }
+
+    #[test]
+    fn test_format_json() {
+        let text = r#"{"name":"test","value":123}"#;
+        let result = apply_rule(text, "format_json").unwrap();
+        assert!(result.contains("\n"));
+    }
+
+    #[test]
+    fn test_minify_json() {
+        let text = "{\n  \"name\": \"test\"\n}";
+        let result = apply_rule(text, "minify_json").unwrap();
+        assert!(!result.contains("\n"));
+    }
+
+    #[test]
+    fn test_sort_lines() {
+        let text = "banana\napple\ncherry";
+        let result = apply_rule(text, "sort_lines").unwrap();
+        assert_eq!(result, "apple\nbanana\ncherry");
+    }
+
+    #[test]
+    fn test_dedupe_lines() {
+        let text = "apple\nbanana\napple\ncherry";
+        let result = apply_rule(text, "dedupe_lines").unwrap();
+        assert_eq!(result, "apple\nbanana\ncherry");
     }
 
     #[test]
@@ -213,8 +345,8 @@ mod tests {
     #[test]
     fn test_get_builtin_rules() {
         let rules = get_builtin_rules();
-        assert!(rules.len() >= 5);
-        assert!(rules.iter().any(|r| r.id == "remove_empty_lines"));
-        assert!(rules.iter().any(|r| r.id == "collapse_spaces"));
+        assert!(rules.len() >= 9);
+        assert!(rules.iter().any(|r| r.id == "format_json"));
+        assert!(rules.iter().any(|r| r.id == "sort_lines"));
     }
 }

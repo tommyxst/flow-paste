@@ -64,13 +64,24 @@ export type PanelMode = 'idle' | 'preview' | 'processing' | 'result'
 // ============================================================
 // Rule Types
 // ============================================================
+export type TransformationType = 'regex_replace' | 'json_format' | 'json_minify' | 'sort_lines' | 'dedupe_lines'
+
 export interface Rule {
   id: string
   name: string
   description: string
+  transformationType?: TransformationType
   pattern: string
   replacement: string
   isBuiltin: boolean
+}
+
+export interface CustomRule extends Rule {
+  sourcePrompt?: string
+  createdBy?: 'builtin' | 'user' | 'ai'
+  createdAt?: number
+  usageCount?: number
+  lastUsedAt?: number
 }
 
 // ============================================================
@@ -172,6 +183,18 @@ export interface ActionSnapshot {
 }
 
 // ============================================================
+// AI Rule Learning Types
+// ============================================================
+export interface RuleSuggestion {
+  canBeRule: boolean
+  confidence: number
+  name: string
+  pattern: string
+  replacement: string
+  transformationType: TransformationType
+}
+
+// ============================================================
 // Config Types
 // ============================================================
 export interface AppConfig {
@@ -181,6 +204,9 @@ export interface AppConfig {
   openaiBaseUrl: string
   modelName: string
   theme: 'system' | 'light' | 'dark'
+  pinnedRuleIds: string[]
+  customRules: CustomRule[]
+  enableAIRuleLearning: boolean
 }
 
 // ============================================================

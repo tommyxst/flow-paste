@@ -12,6 +12,9 @@ import type {
   ClipboardContent,
   ActionSnapshot,
   ErrorInfo,
+  CustomRule,
+  Rule,
+  RuleSuggestion,
 } from '@/types'
 
 export const useAppStore = defineStore('app', () => {
@@ -35,10 +38,14 @@ export const useAppStore = defineStore('app', () => {
 
   // Config
   const config = ref<AppConfig | null>(null)
+  const builtinRules = ref<Rule[]>([])
 
   // Error & Retry (improved from review)
   const errorInfo = ref<ErrorInfo | null>(null)
   const lastAction = ref<ActionSnapshot | null>(null)
+
+  // AI Rule Learning
+  const ruleSuggestion = ref<RuleSuggestion | null>(null)
 
   // Computed
   const clipboardText = computed(() => clipboardContent.value?.text ?? '')
@@ -48,6 +55,28 @@ export const useAppStore = defineStore('app', () => {
   const canRetry = computed(() => {
     if (!lastAction.value || !errorInfo.value?.recoverable) return false
     return lastAction.value.retryCount < lastAction.value.maxRetries
+  })
+
+  // All rules (builtin + custom)
+  const allRules = computed(() => {
+    const custom = config.value?.customRules ?? []
+    return [...builtinRules.value, ...custom]
+  })
+
+  // Visible rules (top 3 pinned)
+  const visibleRules = computed(() => {
+    const pinnedIds = config.value?.pinnedRuleIds ?? []
+    return pinnedIds
+      .slice(0, 3)
+      .map(id => allRules.value.find(r => r.id === id))
+      .filter((r): r is Rule => !!r)
+  })
+
+  // Overflow rules (not in top 3)
+  const overflowRules = computed(() => {
+    const pinnedIds = config.value?.pinnedRuleIds ?? []
+    const visibleIds = new Set(pinnedIds.slice(0, 3))
+    return allRules.value.filter(r => !visibleIds.has(r.id))
   })
 
   // Panel Actions
@@ -174,7 +203,17 @@ export const useAppStore = defineStore('app', () => {
       }
 
       const usePrivacyShield = privacyStatus.value.type === 'cloud-masked'
-      const fullPrompt = `${prompt}\n\nContent:\n${clipboardText.value}`
+
+      // Build prompt with optional rule learning
+      let fullPrompt = `${prompt}\n\nContent:\n${clipboardText.value}`
+      if (config.value?.enableAIRuleLearning) {
+        fullPrompt += `\n\n---\nAfter completing the task, evaluate if this transformation can be automated as a reusable rule.
+If yes, append a JSON block at the end in this exact format:
+\`\`\`rule
+{"canBeRule":true,"confidence":0.9,"name":"Rule Name","pattern":"regex pattern","replacement":"replacement string","transformationType":"regex_replace"}
+\`\`\`
+Only include this if confidence >= 0.8. Valid transformationType: regex_replace, json_format, json_minify, sort_lines, dedupe_lines.`
+      }
 
       await commands.sendAiRequest(fullPrompt, fullConfig, requestId, usePrivacyShield)
     } catch (e) {
@@ -231,6 +270,7 @@ export const useAppStore = defineStore('app', () => {
   async function loadConfig() {
     try {
       config.value = await commands.getConfig()
+      builtinRules.value = await commands.getBuiltinRules()
     } catch (e) {
       console.error('Failed to load config:', e)
     }
@@ -243,6 +283,79 @@ export const useAppStore = defineStore('app', () => {
     } catch (e) {
       setError(`Failed to save config: ${e}`)
     }
+  }
+
+  // Rule Management
+  async function reorderRules(newOrder: string[]) {
+    if (!config.value) return
+    await saveConfig({ ...config.value, pinnedRuleIds: newOrder })
+  }
+
+  async function pinRule(ruleId: string) {
+    if (!config.value) return
+    if (config.value.pinnedRuleIds.includes(ruleId)) return
+
+    // We allow more than 3 in the list, UI decides how to show them
+    const newPinned = [...config.value.pinnedRuleIds, ruleId]
+    await saveConfig({ ...config.value, pinnedRuleIds: newPinned })
+  }
+
+  async function unpinRule(ruleId: string) {
+    if (!config.value) return
+    const newPinned = config.value.pinnedRuleIds.filter(id => id !== ruleId)
+    await saveConfig({ ...config.value, pinnedRuleIds: newPinned })
+  }
+
+  async function saveCustomRule(rule: CustomRule) {
+    if (!config.value) return
+    // Check if ID exists
+    const exists = config.value.customRules.some(r => r.id === rule.id)
+    if (exists) {
+      // Update existing
+      const newRules = config.value.customRules.map(r => r.id === rule.id ? rule : r)
+      await saveConfig({ ...config.value, customRules: newRules })
+    } else {
+      // Add new
+      const newRules = [...config.value.customRules, rule]
+      await saveConfig({ ...config.value, customRules: newRules })
+    }
+  }
+
+  async function deleteCustomRule(ruleId: string) {
+    if (!config.value) return
+    const newRules = config.value.customRules.filter(r => r.id !== ruleId)
+    // Also remove from pinned if present
+    const newPinned = config.value.pinnedRuleIds.filter(id => id !== ruleId)
+
+    await saveConfig({
+      ...config.value,
+      customRules: newRules,
+      pinnedRuleIds: newPinned
+    })
+  }
+
+  async function saveRuleSuggestion() {
+    if (!ruleSuggestion.value || !config.value) return
+    const s = ruleSuggestion.value
+    const newRule: CustomRule = {
+      id: `ai_${Date.now()}`,
+      name: s.name,
+      description: `AI generated rule`,
+      pattern: s.pattern,
+      replacement: s.replacement,
+      transformationType: s.transformationType,
+      isBuiltin: false,
+      createdBy: 'ai',
+      createdAt: Date.now(),
+      usageCount: 0,
+    }
+    await saveCustomRule(newRule)
+    await pinRule(newRule.id)
+    ruleSuggestion.value = null
+  }
+
+  function dismissRuleSuggestion() {
+    ruleSuggestion.value = null
   }
 
   // Internal Actions
@@ -324,6 +437,7 @@ export const useAppStore = defineStore('app', () => {
     maskedMapping.value = { mappings: {} }
     errorInfo.value = null
     lastAction.value = null
+    ruleSuggestion.value = null
     panelMode.value = 'idle'
     currentRequestId.value = null
   }
@@ -333,7 +447,21 @@ export const useAppStore = defineStore('app', () => {
     if (payload.requestId !== currentRequestId.value) return
 
     if (payload.done) {
-      finishProcessing(payload.content)
+      // Parse rule suggestion if present
+      const ruleMatch = payload.content.match(/```rule\s*([\s\S]*?)```/)
+      if (ruleMatch) {
+        try {
+          const suggestion = JSON.parse(ruleMatch[1].trim()) as RuleSuggestion
+          if (suggestion.canBeRule && suggestion.confidence >= 0.8) {
+            ruleSuggestion.value = suggestion
+          }
+        } catch { /* ignore parse errors */ }
+        // Remove rule block from displayed content
+        const cleanContent = payload.content.replace(/\n*---\n*```rule[\s\S]*?```\s*$/, '').trim()
+        finishProcessing(cleanContent)
+      } else {
+        finishProcessing(payload.content)
+      }
     } else {
       appendStreamContent(payload.content)
     }
@@ -367,10 +495,15 @@ export const useAppStore = defineStore('app', () => {
     errorInfo,
     lastAction,
     config,
+    builtinRules,
+    ruleSuggestion,
     // Computed
     hasContent,
     isProcessing,
     canRetry,
+    allRules,
+    visibleRules,
+    overflowRules,
     // Panel Actions
     showPanel,
     hidePanel,
@@ -384,6 +517,13 @@ export const useAppStore = defineStore('app', () => {
     // Config Actions
     loadConfig,
     saveConfig,
+    reorderRules,
+    pinRule,
+    unpinRule,
+    saveCustomRule,
+    deleteCustomRule,
+    saveRuleSuggestion,
+    dismissRuleSuggestion,
     // Internal Actions
     startProcessing,
     appendStreamContent,

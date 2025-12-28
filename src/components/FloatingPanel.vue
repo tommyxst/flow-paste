@@ -7,10 +7,10 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { Search, Settings, Loader2, RefreshCw, ShieldCheck, ShieldAlert } from 'lucide-vue-next'
 import Preview from './Preview.vue'
-import ActionChips from './ActionChips.vue'
+import QuickActions from './QuickActions.vue'
+import RuleSuggestion from './RuleSuggestion.vue'
 import SettingsPanel from './SettingsPanel.vue'
 import ErrorDisplay from './ErrorDisplay.vue'
-import type { ActionChip } from '@/types'
 
 const store = useAppStore()
 
@@ -66,13 +66,6 @@ async function confirmAndClose() {
   await hideWindow()
 }
 
-function handleChipSelect(chip: ActionChip) {
-  if (chip.actionType === 'LocalRule') {
-    store.processWithRule(chip.payload)
-  } else {
-    store.processWithAI(chip.payload)
-  }
-}
 
 function handleSettingsClose() {
   showSettings.value = false
@@ -196,23 +189,19 @@ onUnmounted(() => {
         />
       </div>
 
-      <!-- Action Chips -->
-      <div 
+      <!-- Quick Actions -->
+      <div
         class="px-4 pb-3"
-        v-if="!store.isProcessing && store.actionChips.length > 0"
+        v-if="!store.isProcessing && store.hasContent"
       >
-        <ActionChips
-          :chips="store.actionChips"
-          :selected-index="store.selectedChipIndex"
-          @select="handleChipSelect"
-        />
+        <QuickActions />
       </div>
       
       <!-- Result Confirmation Actions -->
       <div class="px-4 pb-3 pt-1 border-t border-[var(--panel-border)] bg-gray-50/30 dark:bg-black/10 flex justify-between items-center" v-if="store.panelMode === 'result'">
          <div class="text-xs text-[var(--text-secondary)]">Press <span class="font-bold">Enter</span> to paste</div>
          <div class="flex gap-2">
-            <button 
+            <button
               @click="store.reset(); store.refreshClipboard()"
               class="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded text-[var(--text-tertiary)] transition-colors"
               title="Reset"
@@ -220,6 +209,11 @@ onUnmounted(() => {
               <RefreshCw class="w-4 h-4" />
             </button>
          </div>
+      </div>
+
+      <!-- Rule Suggestion -->
+      <div class="px-4 pb-3" v-if="store.panelMode === 'result' && store.ruleSuggestion">
+        <RuleSuggestion />
       </div>
 
       <!-- Footer / Status Bar -->

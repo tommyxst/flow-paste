@@ -5,6 +5,7 @@ use std::sync::Mutex;
 use std::fs;
 use tauri::{AppHandle, Manager, Runtime};
 use thiserror::Error;
+use crate::regex::Rule;
 
 const SERVICE_NAME: &str = "flow-paste";
 
@@ -17,7 +18,15 @@ pub struct AppConfig {
     pub openai_base_url: String,
     pub model_name: String,
     pub theme: String,
+    #[serde(default)]
+    pub pinned_rule_ids: Vec<String>,
+    #[serde(default)]
+    pub custom_rules: Vec<Rule>,
+    #[serde(default = "default_true")]
+    pub enable_ai_rule_learning: bool,
 }
+
+fn default_true() -> bool { true }
 
 impl Default for AppConfig {
     fn default() -> Self {
@@ -28,6 +37,13 @@ impl Default for AppConfig {
             openai_base_url: "https://api.openai.com/v1".to_string(),
             model_name: "llama3.2".to_string(),
             theme: "system".to_string(),
+            pinned_rule_ids: vec![
+                "trim_whitespace".to_string(),
+                "cjk_spacing".to_string(),
+                "format_json".to_string(),
+            ],
+            custom_rules: vec![],
+            enable_ai_rule_learning: true,
         }
     }
 }
@@ -117,6 +133,19 @@ impl ConfigManager {
                 "openaiBaseUrl" => config.openai_base_url = value,
                 "modelName" => config.model_name = value,
                 "theme" => config.theme = value,
+                "pinnedRuleIds" => {
+                    if let Ok(val) = serde_json::from_str(&value) {
+                         config.pinned_rule_ids = val;
+                    }
+                },
+                "customRules" => {
+                    if let Ok(val) = serde_json::from_str(&value) {
+                         config.custom_rules = val;
+                    }
+                },
+                "enableAIRuleLearning" => {
+                    config.enable_ai_rule_learning = value == "true";
+                },
                 _ => {}
             }
         }
@@ -139,8 +168,28 @@ impl ConfigManager {
             ("theme", &config.theme),
         ];
 
+        // Special handling for complex types (Vecs) to store as JSON strings in SQLite
+        let pinned_rules_json = serde_json::to_string(&config.pinned_rule_ids).unwrap_or_default();
+        let custom_rules_json = serde_json::to_string(&config.custom_rules).unwrap_or_default();
+        
+        // Execute simple fields
         for (key, value) in pairs {
             conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                params![key, value],
+            )
+            .map_err(|e| ConfigError::Database(e.to_string()))?;
+        }
+
+        // Execute complex fields
+        let complex_pairs = [
+            ("pinnedRuleIds", pinned_rules_json),
+            ("customRules", custom_rules_json),
+            ("enableAIRuleLearning", config.enable_ai_rule_learning.to_string()),
+        ];
+
+        for (key, value) in complex_pairs {
+             conn.execute(
                 "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
                 params![key, value],
             )

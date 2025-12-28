@@ -1,0 +1,221 @@
+{
+  "project": "FlowPaste",
+  "feature": "快捷操作优化",
+  "version": "1.0.0",
+  "created": "2024-12-28",
+  "features": [
+    {
+      "id": "F001",
+      "name": "内置规则扩展",
+      "description": "新增 format_json, minify_json, sort_lines, dedupe_lines 本地规则",
+      "priority": "P0",
+      "type": "backend",
+      "tasks": [
+        {
+          "id": "F001-T1",
+          "name": "实现 format_json 规则",
+          "description": "使用 serde_json 格式化 JSON，支持错误处理",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F001-T2",
+          "name": "实现 minify_json 规则",
+          "description": "压缩 JSON 为单行",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F001-T3",
+          "name": "实现 sort_lines 规则",
+          "description": "按字典序排序行",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F001-T4",
+          "name": "实现 dedupe_lines 规则",
+          "description": "去除重复行，保持首次出现顺序",
+          "estimate": "0.5h"
+        }
+      ]
+    },
+    {
+      "id": "F002",
+      "name": "配置结构扩展",
+      "description": "扩展 AppConfig 和 CustomRule 类型定义",
+      "priority": "P0",
+      "type": "fullstack",
+      "tasks": [
+        {
+          "id": "F002-T1",
+          "name": "扩展 Rust 配置结构",
+          "description": "在 config/mod.rs 中添加 pinnedRuleIds, customRules, enableAIRuleLearning",
+          "estimate": "1h"
+        },
+        {
+          "id": "F002-T2",
+          "name": "扩展 TypeScript 类型",
+          "description": "在 types/index.ts 中同步类型定义",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F002-T3",
+          "name": "配置迁移逻辑",
+          "description": "处理旧配置升级，设置默认值",
+          "estimate": "0.5h"
+        }
+      ]
+    },
+    {
+      "id": "F003",
+      "name": "主面板快捷按钮重构",
+      "description": "限制显示 3 个按钮 + 更多菜单",
+      "priority": "P0",
+      "type": "frontend",
+      "tasks": [
+        {
+          "id": "F003-T1",
+          "name": "重构 ActionChips 组件",
+          "description": "限制显示前 3 个，添加更多按钮",
+          "estimate": "1h"
+        },
+        {
+          "id": "F003-T2",
+          "name": "实现 OverflowMenu 组件",
+          "description": "Popover 菜单，显示剩余规则，分组展示",
+          "estimate": "2h"
+        },
+        {
+          "id": "F003-T3",
+          "name": "移除 AI 依赖的 ActionChip 生成",
+          "description": "修改 intent.rs，快捷按钮全部为 LocalRule",
+          "estimate": "1h"
+        }
+      ]
+    },
+    {
+      "id": "F004",
+      "name": "设置页快捷操作管理",
+      "description": "拖拽排序、固定前 3、来源标签、删除功能",
+      "priority": "P1",
+      "type": "frontend",
+      "tasks": [
+        {
+          "id": "F004-T1",
+          "name": "设计快捷操作管理 UI",
+          "description": "在 SettingsPanel 中新增 Tab",
+          "estimate": "1h"
+        },
+        {
+          "id": "F004-T2",
+          "name": "实现拖拽排序",
+          "description": "使用 vue-draggable 或原生拖拽",
+          "estimate": "2h"
+        },
+        {
+          "id": "F004-T3",
+          "name": "实现规则管理功能",
+          "description": "固定/取消固定、删除自定义规则",
+          "estimate": "1h"
+        },
+        {
+          "id": "F004-T4",
+          "name": "实现 AI 规则学习开关",
+          "description": "设置项 + 持久化",
+          "estimate": "0.5h"
+        }
+      ]
+    },
+    {
+      "id": "F005",
+      "name": "AI 规则学习机制",
+      "description": "AI 操作后评估是否可保存为本地规则",
+      "priority": "P1",
+      "type": "fullstack",
+      "tasks": [
+        {
+          "id": "F005-T1",
+          "name": "修改 AI 系统提示词",
+          "description": "追加规则评估指令",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F005-T2",
+          "name": "解析 AI 返回的规则评估",
+          "description": "从响应中提取 ruleCandidate JSON",
+          "estimate": "1h"
+        },
+        {
+          "id": "F005-T3",
+          "name": "实现 RuleSavePrompt 组件",
+          "description": "显示保存提示，支持编辑名称",
+          "estimate": "1.5h"
+        },
+        {
+          "id": "F005-T4",
+          "name": "实现规则保存逻辑",
+          "description": "保存到 customRules，可选固定",
+          "estimate": "1h"
+        }
+      ]
+    },
+    {
+      "id": "F006",
+      "name": "Store 规则管理方法",
+      "description": "在 app.ts 中添加规则管理相关方法",
+      "priority": "P0",
+      "type": "frontend",
+      "tasks": [
+        {
+          "id": "F006-T1",
+          "name": "实现 getVisibleRules",
+          "description": "获取前 3 个固定规则",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F006-T2",
+          "name": "实现 getOverflowRules",
+          "description": "获取溢出菜单规则，按最近使用排序",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F006-T3",
+          "name": "实现 reorderRules",
+          "description": "拖拽排序后更新 pinnedRuleIds",
+          "estimate": "0.5h"
+        },
+        {
+          "id": "F006-T4",
+          "name": "实现 saveAILearnedRule",
+          "description": "保存 AI 学习的规则",
+          "estimate": "0.5h"
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "F003": ["F001", "F002"],
+    "F004": ["F002", "F006"],
+    "F005": ["F002", "F006"]
+  },
+  "milestones": [
+    {
+      "name": "M1: 基础设施",
+      "features": ["F001", "F002", "F006"],
+      "description": "内置规则、配置结构、Store 方法"
+    },
+    {
+      "name": "M2: 主面板重构",
+      "features": ["F003"],
+      "description": "快捷按钮 + 更多菜单"
+    },
+    {
+      "name": "M3: 设置页管理",
+      "features": ["F004"],
+      "description": "拖拽排序、规则管理"
+    },
+    {
+      "name": "M4: AI 规则学习",
+      "features": ["F005"],
+      "description": "智能规则提取与保存"
+    }
+  ]
+}

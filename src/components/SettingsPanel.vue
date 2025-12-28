@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { commands } from '@/lib/tauri'
-import type { AppConfig, ModelInfo } from '@/types'
+import type { AppConfig, ModelInfo, Rule } from '@/types'
 
 const store = useAppStore()
 
@@ -17,6 +17,9 @@ const formData = ref<AppConfig>({
   openaiBaseUrl: 'https://api.openai.com/v1',
   modelName: 'llama3.2',
   theme: 'system',
+  pinnedRuleIds: [],
+  customRules: [],
+  enableAIRuleLearning: true,
 })
 
 const apiKey = ref('')
@@ -25,6 +28,7 @@ const isTesting = ref(false)
 const testResult = ref<{ success: boolean; message: string } | null>(null)
 const isSaving = ref(false)
 const errors = ref<Record<string, string>>({})
+const selectedRuleToAdd = ref('')
 
 const currentProvider = computed(() => formData.value.aiProvider)
 const currentBaseUrl = computed(() =>
@@ -34,6 +38,35 @@ const currentBaseUrl = computed(() =>
 )
 
 const requiresApiKey = computed(() => formData.value.aiProvider === 'OpenAI')
+
+const availableRulesToAdd = computed(() => {
+  const pinned = new Set(formData.value.pinnedRuleIds)
+  return store.allRules.filter((r: Rule) => !pinned.has(r.id))
+})
+
+function moveRuleUp(index: number) {
+  if (index <= 0) return
+  const arr = [...formData.value.pinnedRuleIds]
+  ;[arr[index - 1], arr[index]] = [arr[index], arr[index - 1]]
+  formData.value.pinnedRuleIds = arr
+}
+
+function moveRuleDown(index: number) {
+  if (index >= formData.value.pinnedRuleIds.length - 1) return
+  const arr = [...formData.value.pinnedRuleIds]
+  ;[arr[index], arr[index + 1]] = [arr[index + 1], arr[index]]
+  formData.value.pinnedRuleIds = arr
+}
+
+function removeFromPinned(index: number) {
+  formData.value.pinnedRuleIds = formData.value.pinnedRuleIds.filter((_, i) => i !== index)
+}
+
+function addToPinned() {
+  if (!selectedRuleToAdd.value) return
+  formData.value.pinnedRuleIds = [...formData.value.pinnedRuleIds, selectedRuleToAdd.value]
+  selectedRuleToAdd.value = ''
+}
 
 onMounted(async () => {
   if (store.config) {
@@ -301,6 +334,60 @@ function handleProviderChange() {
           <option value="light">浅色</option>
           <option value="dark">深色</option>
         </select>
+      </div>
+
+      <!-- Quick Actions Management -->
+      <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          快捷操作 (拖拽排序，前3个显示在主面板)
+        </label>
+        <div class="space-y-1">
+          <div
+            v-for="(ruleId, index) in formData.pinnedRuleIds"
+            :key="ruleId"
+            class="flex items-center gap-2 p-2 rounded-lg border"
+            :class="index < 3 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'"
+          >
+            <span class="text-xs font-mono w-5 text-center" :class="index < 3 ? 'text-blue-500' : 'text-gray-400'">
+              {{ index < 3 ? index + 1 : '-' }}
+            </span>
+            <span class="flex-1 text-sm text-gray-700 dark:text-gray-300">
+              {{ store.allRules.find((r: Rule) => r.id === ruleId)?.name || ruleId }}
+            </span>
+            <button
+              type="button"
+              @click="moveRuleUp(index)"
+              :disabled="index === 0"
+              class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+            >↑</button>
+            <button
+              type="button"
+              @click="moveRuleDown(index)"
+              :disabled="index === formData.pinnedRuleIds.length - 1"
+              class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+            >↓</button>
+            <button
+              type="button"
+              @click="removeFromPinned(index)"
+              class="p-1 text-red-400 hover:text-red-600"
+            >×</button>
+          </div>
+        </div>
+        <!-- Add Rule -->
+        <div class="mt-2">
+          <select
+            v-model="selectedRuleToAdd"
+            @change="addToPinned"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm dark:bg-gray-800 dark:text-gray-200"
+          >
+            <option value="">添加快捷操作...</option>
+            <option
+              v-for="rule in availableRulesToAdd"
+              :key="rule.id"
+              :value="rule.id"
+            >{{ rule.name }}</option>
+          </select>
+        </div>
       </div>
 
       <!-- Test Connection -->
