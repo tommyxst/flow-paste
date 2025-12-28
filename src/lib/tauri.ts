@@ -93,6 +93,8 @@ export const commands = {
   listLocalModels: () => invokeCommand<ModelInfo[]>('list_local_models'),
   checkOllamaHealth: (baseUrl?: string) =>
     invokeCommand<boolean>('check_ollama_health', { baseUrl }),
+  testOpenaiConnection: (baseUrl: string, apiKey: string, model: string) =>
+    invokeCommand<boolean>('test_openai_connection', { baseUrl, apiKey, model }),
   sendAiRequest: (
     prompt: string,
     config: AIConfig,

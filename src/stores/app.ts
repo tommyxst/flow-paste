@@ -196,9 +196,17 @@ export const useAppStore = defineStore('app', () => {
 
       // Get API key if using OpenAI
       if (fullConfig.provider === 'OpenAI') {
-        const apiKey = await commands.getApiKey('openai')
-        if (apiKey) {
-          fullConfig.apiKey = apiKey
+        console.log('[AI] Fetching API key for OpenAI provider...')
+        try {
+          const apiKey = await commands.getApiKey('openai')
+          console.log('[AI] API key result:', apiKey ? 'found (len=' + apiKey.length + ')' : 'NOT FOUND')
+          if (apiKey) {
+            fullConfig.apiKey = apiKey
+          } else {
+            console.warn('[AI] No API key found in keyring!')
+          }
+        } catch (e) {
+          console.error('[AI] Failed to get API key:', e)
         }
       }
 

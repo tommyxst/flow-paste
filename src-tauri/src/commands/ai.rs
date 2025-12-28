@@ -85,6 +85,29 @@ pub async fn check_ollama_health(
 }
 
 #[tauri::command]
+pub async fn test_openai_connection(
+    state: State<'_, Arc<AIState>>,
+    base_url: String,
+    api_key: String,
+    model: String,
+) -> Result<bool, String> {
+    let config = AIConfig {
+        provider: AIProviderType::OpenAI,
+        base_url,
+        model,
+        api_key: Some(api_key),
+        max_tokens: 1,
+        temperature: 0.0,
+    };
+
+    state
+        .openai
+        .health_check(&config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn send_ai_request(
     app: AppHandle,
     state: State<'_, Arc<AIState>>,
@@ -93,6 +116,11 @@ pub async fn send_ai_request(
     request_id: String,
     use_privacy_shield: bool,
 ) -> Result<(), String> {
+    // Check API key for OpenAI provider
+    if config.provider == AIProviderType::OpenAI && config.api_key.is_none() {
+        return Err("API Key not configured. Please set your API Key in Settings.".to_string());
+    }
+
     // Privacy shield processing
     let (processed_prompt, mask_result) = if use_privacy_shield
         && config.provider == AIProviderType::OpenAI

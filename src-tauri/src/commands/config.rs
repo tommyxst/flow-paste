@@ -20,7 +20,9 @@ pub async fn get_api_key(
     provider: String,
     state: State<'_, ConfigManager>,
 ) -> Result<Option<String>, String> {
-    state.get_api_key(&provider).map_err(|e| e.to_string())
+    let result = state.get_api_key(&provider);
+    log::info!("get_api_key('{}') => has_key: {}", provider, result.as_ref().map(|r| r.is_some()).unwrap_or(false));
+    result.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -29,5 +31,8 @@ pub async fn set_api_key(
     key: String,
     state: State<'_, ConfigManager>,
 ) -> Result<(), String> {
-    state.set_api_key(&provider, &key).map_err(|e| e.to_string())
+    log::info!("set_api_key('{}', key_len={})", provider, key.len());
+    let result = state.set_api_key(&provider, &key);
+    log::info!("set_api_key result: {:?}", result.is_ok());
+    result.map_err(|e| e.to_string())
 }

@@ -78,6 +78,7 @@ pub fn run() {
             commands::restore_pii,
             commands::list_local_models,
             commands::check_ollama_health,
+            commands::test_openai_connection,
             commands::send_ai_request,
             commands::cancel_ai_request,
             commands::detect_content_intent,

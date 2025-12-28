@@ -150,11 +150,22 @@ async function testConnection() {
         await loadOllamaModels()
       }
     } else {
-      // For OpenAI, we can't test without making an actual API call
-      // Just validate the format
-      testResult.value = {
-        success: true,
-        message: '✅ 配置格式正确',
+      // Test OpenAI-compatible API with actual connection
+      try {
+        const success = await commands.testOpenaiConnection(
+          formData.value.openaiBaseUrl,
+          apiKey.value,
+          formData.value.modelName
+        )
+        testResult.value = {
+          success,
+          message: success ? '✅ API 连接成功' : '❌ API 连接失败',
+        }
+      } catch (e) {
+        testResult.value = {
+          success: false,
+          message: `❌ 连接失败: ${e}`,
+        }
       }
     }
   } catch (e) {
@@ -178,7 +189,15 @@ async function handleSave() {
 
     // Save API key if provided
     if (requiresApiKey.value && apiKey.value.trim()) {
-      await commands.setApiKey('openai', apiKey.value)
+      console.log('[Settings] Saving API key, length:', apiKey.value.length)
+      try {
+        await commands.setApiKey('openai', apiKey.value)
+        console.log('[Settings] API key saved successfully')
+      } catch (e) {
+        console.error('[Settings] Failed to save API key:', e)
+        errors.value.apiKey = 'Failed to save API key: ' + e
+        return
+      }
     }
 
     // Re-register hotkey if changed

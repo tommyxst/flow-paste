@@ -200,31 +200,82 @@ impl ConfigManager {
     }
 
     pub fn get_api_key(&self, provider: &str) -> Result<Option<String>, ConfigError> {
-        let entry = Entry::new(SERVICE_NAME, provider)
-            .map_err(|e| ConfigError::Keyring(e.to_string()))?;
-
-        match entry.get_password() {
-            Ok(pwd) => Ok(Some(pwd)),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(ConfigError::Keyring(e.to_string())),
+        log::debug!("get_api_key: trying keyring for provider='{}'", provider);
+        
+        // Try keyring first
+        if let Ok(entry) = Entry::new(SERVICE_NAME, provider) {
+            if let Ok(pwd) = entry.get_password() {
+                log::debug!("get_api_key: found in keyring, len={}", pwd.len());
+                return Ok(Some(pwd));
+            }
+        }
+        
+        // Fallback to SQLite
+        log::debug!("get_api_key: keyring failed, trying SQLite fallback");
+        let conn = self.db.lock().map_err(|e| ConfigError::Database(e.to_string()))?;
+        let result: Result<String, _> = conn.query_row(
+            "SELECT value FROM api_keys WHERE provider = ?",
+            params![provider],
+            |row| row.get(0),
+        );
+        
+        match result {
+            Ok(key) => {
+                log::debug!("get_api_key: found in SQLite, len={}", key.len());
+                Ok(Some(key))
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                log::debug!("get_api_key: not found in SQLite");
+                Ok(None)
+            }
+            Err(e) => {
+                log::error!("get_api_key: SQLite error: {}", e);
+                Err(ConfigError::Database(e.to_string()))
+            }
         }
     }
 
     pub fn set_api_key(&self, provider: &str, key: &str) -> Result<(), ConfigError> {
-        let entry = Entry::new(SERVICE_NAME, provider)
-            .map_err(|e| ConfigError::Keyring(e.to_string()))?;
-
-        if key.is_empty() {
-            // Delete the key if empty string provided
-            match entry.delete_credential() {
-                Ok(_) => Ok(()),
-                Err(keyring::Error::NoEntry) => Ok(()), // Already deleted
-                Err(e) => Err(ConfigError::Keyring(e.to_string())),
+        log::debug!("set_api_key: provider='{}', key_len={}", provider, key.len());
+        
+        // Try keyring first
+        let keyring_ok = if let Ok(entry) = Entry::new(SERVICE_NAME, provider) {
+            if key.is_empty() {
+                entry.delete_credential().is_ok()
+            } else {
+                entry.set_password(key).is_ok()
             }
         } else {
-            entry
-                .set_password(key)
-                .map_err(|e| ConfigError::Keyring(e.to_string()))
+            false
+        };
+        
+        if keyring_ok {
+            log::debug!("set_api_key: saved to keyring successfully");
+        } else {
+            log::warn!("set_api_key: keyring failed, using SQLite fallback");
         }
+        
+        // Always save to SQLite as fallback
+        let conn = self.db.lock().map_err(|e| ConfigError::Database(e.to_string()))?;
+        
+        // Ensure table exists
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS api_keys (provider TEXT PRIMARY KEY, value TEXT NOT NULL)",
+            [],
+        ).map_err(|e| ConfigError::Database(e.to_string()))?;
+        
+        if key.is_empty() {
+            conn.execute("DELETE FROM api_keys WHERE provider = ?", params![provider])
+                .map_err(|e| ConfigError::Database(e.to_string()))?;
+            log::debug!("set_api_key: deleted from SQLite");
+        } else {
+            conn.execute(
+                "INSERT OR REPLACE INTO api_keys (provider, value) VALUES (?, ?)",
+                params![provider, key],
+            ).map_err(|e| ConfigError::Database(e.to_string()))?;
+            log::debug!("set_api_key: saved to SQLite successfully");
+        }
+        
+        Ok(())
     }
 }

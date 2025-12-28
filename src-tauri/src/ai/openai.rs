@@ -20,6 +20,46 @@ impl OpenAIProvider {
                 .expect("Failed to create HTTP client"),
         }
     }
+
+    /// Probe API with minimal completion call (fallback for health check)
+    async fn probe_completion(&self, config: &AIConfig) -> Result<bool, AIError> {
+        let api_key = config
+            .api_key
+            .as_ref()
+            .ok_or(AIError::AuthenticationFailed)?;
+
+        let url = format!(
+            "{}/chat/completions",
+            config.base_url.trim_end_matches('/')
+        );
+
+        let request = ChatCompletionRequest {
+            model: config.model.clone(),
+            messages: vec![ChatMessageRequest {
+                role: "user".to_string(),
+                content: "hi".to_string(),
+            }],
+            stream: false,
+            max_tokens: 1,
+            temperature: 0.0,
+        };
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .timeout(std::time::Duration::from_secs(15))
+            .send()
+            .await?;
+
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            return Err(AIError::AuthenticationFailed);
+        }
+
+        Ok(response.status().is_success())
+    }
 }
 
 impl Default for OpenAIProvider {
@@ -133,7 +173,15 @@ impl AiProvider for OpenAIProvider {
                         while line.ends_with(['\r', '\n']) {
                             line.pop();
                         }
-                        if line.is_empty() || line == "data: [DONE]" {
+                        if line.is_empty() {
+                            continue;
+                        }
+                        if line == "data: [DONE]" {
+                            // Send final done signal
+                            let stream_chunk = StreamChunk { content: String::new(), done: true };
+                            if tx.send(Ok(stream_chunk)).await.is_err() {
+                                return Err(AIError::Cancelled);
+                            }
                             continue;
                         }
 
@@ -146,7 +194,10 @@ impl AiProvider for OpenAIProvider {
                             Ok(chunk) => {
                                 for choice in chunk.choices {
                                     let content = choice.delta.content.unwrap_or_default();
-                                    let done = choice.finish_reason.is_some();
+                                    let done = matches!(
+                                        choice.finish_reason.as_deref(),
+                                        Some("stop") | Some("length") | Some("content_filter") | Some("tool_calls")
+                                    );
 
                                     if !content.is_empty() || done {
                                         let stream_chunk = StreamChunk { content, done };
@@ -203,7 +254,7 @@ impl AiProvider for OpenAIProvider {
         Ok(models
             .data
             .into_iter()
-            .filter(|m| m.id.starts_with("gpt-") || m.id.contains("turbo"))
+            // Return all models without filtering for OpenAI-compatible API support
             .map(|m| ModelInfo {
                 id: m.id.clone(),
                 name: m.id,
@@ -217,10 +268,18 @@ impl AiProvider for OpenAIProvider {
             return Ok(false);
         }
 
+        // Try list_models first, fallback to probe_completion for third-party APIs
         match self.list_models(config).await {
             Ok(_) => Ok(true),
             Err(AIError::AuthenticationFailed) => Ok(false),
-            Err(_) => Ok(false),
+            Err(_) => {
+                // Fallback: try a minimal completion call
+                match self.probe_completion(config).await {
+                    Ok(success) => Ok(success),
+                    Err(AIError::AuthenticationFailed) => Ok(false),
+                    Err(_) => Ok(false),
+                }
+            }
         }
     }
 }
