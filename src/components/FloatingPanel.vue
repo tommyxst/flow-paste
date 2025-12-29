@@ -252,8 +252,8 @@ onUnmounted(() => {
   </div>
 
   <!-- Settings Panel Overlay -->
-  <div v-else class="w-full h-full flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
-    <SettingsPanel @close="handleSettingsClose" class="max-h-full w-full max-w-lg shadow-2xl" />
+  <div v-else class="settings-overlay">
+    <SettingsPanel @close="handleSettingsClose" />
   </div>
 </template>
 
@@ -264,5 +264,15 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--panel-border);
   box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.3);
+}
+
+.settings-overlay {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #141414;
 }
 </style>

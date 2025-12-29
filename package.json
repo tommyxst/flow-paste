@@ -13,7 +13,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "perf:report": "node scripts/perf/generate-report.js"
+    "perf:report": "node scripts/perf/generate-report.js",
+    "tauri:kill": "taskkill /F /IM flow-paste.exe 2>nul || echo Done"
   },
   "keywords": [],
   "author": "",
