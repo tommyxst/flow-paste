@@ -177,19 +177,17 @@ interface AppConfig {
 
 | ID | 名称 | 类型 | 说明 |
 |----|------|------|------|
-| trim_whitespace | 去首尾空格 | regex_replace | 去除每行首尾空白 |
-| cjk_spacing | CJK/英文间距 | regex_replace | 中英文之间加空格 |
-| format_json | 格式化 JSON | json_format | 美化 JSON 缩进 |
-| minify_json | 压缩 JSON | json_minify | 压缩为单行 |
+| remove_spaces | 去除空格 | regex_replace | 移除所有空格和制表符 |
+| remove_newlines | 去除换行 | regex_replace | 移除所有换行符 |
 | remove_empty_lines | 去空行 | regex_replace | 移除连续空行 |
-| collapse_spaces | 合并空格 | regex_replace | 多空格合并为一个 |
+| to_plain_text | 转纯文本 | regex_replace | 移除 Markdown 标记 |
+| format_json | 格式化 JSON | json_format | 美化 JSON 缩进 |
 | sort_lines | 行排序 | sort_lines | 按字典序排序 |
 | dedupe_lines | 行去重 | dedupe_lines | 去除重复行 |
-| to_plain_text | 转纯文本 | regex_replace | 移除 Markdown 标记 |
 
 **默认置顶（新用户）**：
-1. trim_whitespace
-2. cjk_spacing
+1. remove_spaces
+2. remove_empty_lines
 3. format_json
 
 ## 5. 系统提示词追加

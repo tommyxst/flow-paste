@@ -212,8 +212,13 @@ export const useAppStore = defineStore('app', () => {
 
       const usePrivacyShield = privacyStatus.value.type === 'cloud-masked'
 
-      // Build prompt with optional rule learning
-      let fullPrompt = `${prompt}\n\nContent:\n${clipboardText.value}`
+      // Build prompt with system instruction for clean output
+      let fullPrompt = `IMPORTANT: Output ONLY the processed result. No explanations, no descriptions, no markdown formatting, no code blocks unless the result itself is code. Just the transformed text ready to paste.
+
+Task: ${prompt}
+
+Content:
+${clipboardText.value}`
       if (config.value?.enableAIRuleLearning) {
         fullPrompt += `\n\n---\nAfter completing the task, evaluate if this transformation can be automated as a reusable rule.
 If yes, append a JSON block at the end in this exact format:

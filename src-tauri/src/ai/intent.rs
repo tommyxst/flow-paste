@@ -104,7 +104,7 @@ fn detect_content_type(text: &str) -> ContentType {
     ContentType::Unknown
 }
 
-fn generate_action_chips(content_type: ContentType, text: &str) -> Vec<ActionChip> {
+fn generate_action_chips(content_type: ContentType, _text: &str) -> Vec<ActionChip> {
     let mut chips = Vec::new();
     let mut shortcut_idx = 1;
 
@@ -113,154 +113,67 @@ fn generate_action_chips(content_type: ContentType, text: &str) -> Vec<ActionChi
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
                 label: "格式化 JSON".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Format this JSON with proper indentation".to_string(),
+                action_type: ActionType::LocalRule,
+                payload: "format_json".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
             shortcut_idx += 1;
 
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
-                label: "压缩 JSON".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Minify this JSON to a single line".to_string(),
+                label: "去除空格".to_string(),
+                action_type: ActionType::LocalRule,
+                payload: "remove_spaces".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
             shortcut_idx += 1;
 
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
-                label: "转换为 YAML".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Convert this JSON to YAML format".to_string(),
-                shortcut: Some(shortcut_idx.to_string()),
-            });
-        }
-        ContentType::Code => {
-            chips.push(ActionChip {
-                id: Uuid::new_v4().to_string(),
-                label: "添加注释".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Add clear comments to explain this code".to_string(),
-                shortcut: Some(shortcut_idx.to_string()),
-            });
-            shortcut_idx += 1;
-
-            chips.push(ActionChip {
-                id: Uuid::new_v4().to_string(),
-                label: "重构优化".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Refactor this code for better readability and performance".to_string(),
-                shortcut: Some(shortcut_idx.to_string()),
-            });
-            shortcut_idx += 1;
-
-            chips.push(ActionChip {
-                id: Uuid::new_v4().to_string(),
-                label: "解释代码".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Explain what this code does in simple terms".to_string(),
-                shortcut: Some(shortcut_idx.to_string()),
-            });
-        }
-        ContentType::Table => {
-            chips.push(ActionChip {
-                id: Uuid::new_v4().to_string(),
-                label: "转换为 Markdown 表格".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Convert this table to Markdown table format".to_string(),
-                shortcut: Some(shortcut_idx.to_string()),
-            });
-            shortcut_idx += 1;
-
-            chips.push(ActionChip {
-                id: Uuid::new_v4().to_string(),
-                label: "提取第一列".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Extract only the first column values".to_string(),
-                shortcut: Some(shortcut_idx.to_string()),
-            });
-            shortcut_idx += 1;
-
-            chips.push(ActionChip {
-                id: Uuid::new_v4().to_string(),
-                label: "排序数据".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Sort this table by the first column".to_string(),
+                label: "去除换行".to_string(),
+                action_type: ActionType::LocalRule,
+                payload: "remove_newlines".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
         }
         ContentType::List => {
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
-                label: "排序列表".to_string(),
+                label: "行排序".to_string(),
                 action_type: ActionType::LocalRule,
-                payload: "sort_list".to_string(),
+                payload: "sort_lines".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
             shortcut_idx += 1;
 
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
-                label: "去重".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Remove duplicate items from this list".to_string(),
+                label: "行去重".to_string(),
+                action_type: ActionType::LocalRule,
+                payload: "dedupe_lines".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
             shortcut_idx += 1;
 
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
-                label: "转为逗号分隔".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Convert this list to comma-separated values".to_string(),
+                label: "去空行".to_string(),
+                action_type: ActionType::LocalRule,
+                payload: "remove_empty_lines".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
         }
-        ContentType::Prose => {
-            let has_urls = URL_PATTERN.is_match(text);
-            let is_long = text.len() > 500;
-
-            if is_long {
-                chips.push(ActionChip {
-                    id: Uuid::new_v4().to_string(),
-                    label: "总结要点".to_string(),
-                    action_type: ActionType::AIPrompt,
-                    payload: "Summarize the key points of this text in bullet points".to_string(),
-                    shortcut: Some(shortcut_idx.to_string()),
-                });
-                shortcut_idx += 1;
-            }
-
+        _ => {
+            // Default actions for all other content types
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
-                label: "修正语法".to_string(),
-                action_type: ActionType::AIPrompt,
-                payload: "Fix grammar and spelling errors".to_string(),
+                label: "去除空格".to_string(),
+                action_type: ActionType::LocalRule,
+                payload: "remove_spaces".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
             shortcut_idx += 1;
 
-            if has_urls {
-                chips.push(ActionChip {
-                    id: Uuid::new_v4().to_string(),
-                    label: "提取链接".to_string(),
-                    action_type: ActionType::LocalRule,
-                    payload: "extract_urls".to_string(),
-                    shortcut: Some(shortcut_idx.to_string()),
-                });
-            } else {
-                chips.push(ActionChip {
-                    id: Uuid::new_v4().to_string(),
-                    label: "翻译成英文".to_string(),
-                    action_type: ActionType::AIPrompt,
-                    payload: "Translate this text to English".to_string(),
-                    shortcut: Some(shortcut_idx.to_string()),
-                });
-            }
-        }
-        ContentType::Unknown => {
-            // Generic actions for unknown content
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
                 label: "去空行".to_string(),
@@ -272,24 +185,14 @@ fn generate_action_chips(content_type: ContentType, text: &str) -> Vec<ActionChi
 
             chips.push(ActionChip {
                 id: Uuid::new_v4().to_string(),
-                label: "去首尾空格".to_string(),
+                label: "转纯文本".to_string(),
                 action_type: ActionType::LocalRule,
-                payload: "trim_whitespace".to_string(),
-                shortcut: Some(shortcut_idx.to_string()),
-            });
-            shortcut_idx += 1;
-
-            chips.push(ActionChip {
-                id: Uuid::new_v4().to_string(),
-                label: "合并空格".to_string(),
-                action_type: ActionType::LocalRule,
-                payload: "collapse_spaces".to_string(),
+                payload: "to_plain_text".to_string(),
                 shortcut: Some(shortcut_idx.to_string()),
             });
         }
     }
 
-    // Limit to 3 chips
     chips.truncate(3);
     chips
 }

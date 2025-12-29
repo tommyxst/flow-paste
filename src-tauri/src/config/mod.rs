@@ -38,8 +38,8 @@ impl Default for AppConfig {
             model_name: "llama3.2".to_string(),
             theme: "system".to_string(),
             pinned_rule_ids: vec![
-                "trim_whitespace".to_string(),
-                "cjk_spacing".to_string(),
+                "remove_spaces".to_string(),
+                "remove_empty_lines".to_string(),
                 "format_json".to_string(),
             ],
             custom_rules: vec![],
