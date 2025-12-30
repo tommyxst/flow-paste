@@ -275,11 +275,12 @@ onUnmounted(() => {
 
 .settings-overlay {
   width: 100%;
-  height: 100%;
+  height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 16px;
   background: #141414;
+  overflow-y: auto;
 }
 </style>

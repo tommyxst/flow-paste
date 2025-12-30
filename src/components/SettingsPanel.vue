@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
-import { commands } from '@/lib/tauri'
-import type { AppConfig } from '@/types'
 import { Settings, X, Loader2, Check, AlertCircle } from 'lucide-vue-next'
+import { useSettingsDraft } from '@/composables/useSettingsDraft'
+import { useSettingsSecrets } from '@/composables/useSettingsSecrets'
+import { useSettingsValidation, type FlatSettingsErrors } from '@/composables/useSettingsValidation'
+import { useSettingsSaveFlow } from '@/composables/useSettingsSaveFlow'
 import GeneralSection from './settings/GeneralSection.vue'
 import AIConfigSection from './settings/AIConfigSection.vue'
 import QuickActionsSection from './settings/QuickActionsSection.vue'
@@ -11,65 +13,38 @@ import QuickActionsSection from './settings/QuickActionsSection.vue'
 const store = useAppStore()
 const emit = defineEmits<{ close: [] }>()
 
-const formData = ref<AppConfig>({
-  hotkey: 'Ctrl+Shift+V', aiProvider: 'Ollama', ollamaBaseUrl: 'http://localhost:11434',
-  openaiBaseUrl: 'https://api.openai.com/v1', modelName: 'llama3.2', theme: 'system',
-  pinnedRuleIds: [], customRules: [], enableAIRuleLearning: true,
-})
+const { draft: formData, applyConfig, commitDraft } = useSettingsDraft(store.config)
+const { apiKey, loadApiKey, saveApiKeyIfNeeded } = useSettingsSecrets()
+const { validateAll, setSaveError, getFlatErrors } = useSettingsValidation()
+const { isSaving, save } = useSettingsSaveFlow()
 
-const apiKey = ref('')
-const isSaving = ref(false)
-const errors = ref<Record<string, string>>({})
 const isVisible = ref(false)
+const errors = ref<FlatSettingsErrors>({})
 
 onMounted(async () => {
-  if (store.config) formData.value = { ...store.config }
-  
-  try { 
-      const key = await commands.getApiKey('openai'); 
-      if (key) apiKey.value = key 
-  } catch (e) { 
-      console.error('Failed to load API key:', e) 
-  }
-
+  if (store.config) applyConfig(store.config)
+  await loadApiKey()
   requestAnimationFrame(() => { isVisible.value = true })
 })
 
-function validateForm(): boolean {
-  errors.value = {}
-  if (!formData.value.hotkey.trim()) errors.value.hotkey = '热键不能为空'
-  
-  const baseUrl = formData.value.aiProvider === 'OpenAI' ? formData.value.openaiBaseUrl : formData.value.ollamaBaseUrl
-  if (!baseUrl.trim()) errors.value.baseUrl = 'URL 不能为空'
-  else if (formData.value.aiProvider === 'OpenAI' && !baseUrl.startsWith('https://')) errors.value.baseUrl = 'OpenAI API 必须使用 HTTPS'
-  
-  if (formData.value.aiProvider === 'OpenAI' && !apiKey.value.trim()) errors.value.apiKey = 'OpenAI 需要 API Key'
-  if (!formData.value.modelName.trim()) errors.value.model = '模型名称不能为空'
-  
-  return Object.keys(errors.value).length === 0
-}
-
 async function handleSave() {
-  if (!validateForm()) return
-  isSaving.value = true
-  try {
-    await store.saveConfig(formData.value)
-    if (formData.value.aiProvider === 'OpenAI' && apiKey.value.trim()) {
-      try { await commands.setApiKey('openai', apiKey.value) }
-      catch (e) { 
-          console.error('[Settings] Failed to save API key:', e); 
-          errors.value.apiKey = 'Failed to save API key: ' + e; 
-          return 
-      }
-    }
-    if (store.config && formData.value.hotkey !== store.config.hotkey) {
-        await commands.registerHotkey(formData.value.hotkey)
-    }
+  const result = await save(
+    formData.value,
+    apiKey.value,
+    () => {
+      const valid = validateAll(formData.value, apiKey.value)
+      errors.value = getFlatErrors()
+      return valid
+    },
+    saveApiKeyIfNeeded
+  )
+
+  if (result.success) {
+    commitDraft()
     emit('close')
-  } catch (e) { 
-      errors.value.save = `保存失败: ${e}` 
-  } finally { 
-      isSaving.value = false 
+  } else if (result.error) {
+    setSaveError(result.error)
+    errors.value = getFlatErrors()
   }
 }
 

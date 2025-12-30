@@ -33,3 +33,6 @@ src-tauri/Cargo.lock
 *.tsbuildinfo
 node_modules
 .ace-tool/
+# Claude Code
+.claude/
+CLAUDE.md
