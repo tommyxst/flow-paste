@@ -151,10 +151,11 @@
 *   集成 Ollama 本地 API 检测与调用。
 *   优化流式输出体验。
 
-### Phase 3: FlowPaste Cloud (Month 3)
-*   推出 Pro 会员体系。
-*   上线自研微调小模型 API (Hosted Qwen-1.5B/3B)。
-*   支持自定义 Prompt 市场。
+### Phase 3: Community & Ecosystem (Month 3+)
+*   **插件系统**: 支持社区贡献自定义规则和 Prompt 模板。
+*   **多语言支持 (i18n)**: 社区驱动的翻译系统。
+*   **主题系统**: 自定义外观和配色方案。
+*   **规则/Prompt 分享市场**: 社区成员可分享和下载规则配置。
 
 ---
 

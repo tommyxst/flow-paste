@@ -2,7 +2,16 @@
 
 > 剪贴即意图，心流不打断 | Paste at the speed of thought
 
-FlowPaste 是一款隐私优先、AI 驱动的智能剪贴板增强工具，帮助用户快速处理复制的文本内容。
+**The first open-source AI-powered clipboard manager with privacy protection**
+
+FlowPaste 是一款完全开源、隐私优先、AI 驱动的智能剪贴板增强工具。通过极致的使用体验和灵活的自定义模型配置，让文本处理变得前所未有的流畅。
+
+## 为什么选择 FlowPaste？
+
+- **🎯 极致体验**: 键盘优先设计，全局热键唤起，毫秒级响应，保持心流状态
+- **🤖 模型自由**: 支持 Ollama 本地模型和任意 OpenAI 兼容 API，完全掌控 AI 选择权
+- **🔒 隐私优先**: 自动 PII 脱敏，云端处理也能保护隐私，API Key 安全存储在系统密钥链
+- **⚡ 开源透明**: MIT 协议，代码完全开放，欢迎社区贡献
 
 ## 功能特性
 
@@ -43,10 +52,17 @@ FlowPaste 是一款隐私优先、AI 驱动的智能剪贴板增强工具，帮�
 
 ### 规划中
 
-- 剪贴板历史记录
+**核心功能增强**:
+- 剪贴板历史记录与全文搜索
+- 数字键快速选择操作（1-9 键）
+- 更多 AI Provider 支持（预设配置模板）
 - 自定义 AI Prompt 模板
-- 多语言支持 (i18n)
-- 快捷键快速选择操作（数字键）
+
+**社区与生态**:
+- 插件系统 - 支持社区贡献规则和 Prompt
+- 多语言支持 (i18n) - 社区驱动翻译
+- 主题系统 - 自定义外观
+- 规则/Prompt 分享市场
 
 ## 快速开始
 
@@ -235,13 +251,21 @@ flow-paste/
 
 ## 贡献指南
 
-欢迎提交 Issue 和 Pull Request!
+我们非常欢迎社区贡献！FlowPaste 是一个完全开源的项目，无论是代码、文档、翻译还是功能建议，都欢迎你的参与。
 
-### 开发流程
+### 如何贡献
+
+- 📖 查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详细的贡献指南
+- 🐛 发现 Bug？请提交 [Issue](https://github.com/your-username/flow-paste/issues)
+- 💡 有功能建议？欢迎在 [Discussions](https://github.com/your-username/flow-paste/discussions) 讨论
+- 🌍 想要翻译？查看 i18n 贡献指南
+
+### 快速开始贡献
+
 1. Fork 本仓库
-2. 创建特性分支 (\`git checkout -b feature/AmazingFeature\`)
-3. 提交更改 (\`git commit -m 'Add some AmazingFeature'\`)
-4. 推送到分支 (\`git push origin feature/AmazingFeature\`)
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'feat: add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 提交 Pull Request
 
 ## 许可证
