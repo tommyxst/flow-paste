@@ -63,7 +63,6 @@ function handleSubmit() {
 
 async function confirmAndClose() {
   await store.confirmPaste()
-  await hideWindow()
 }
 
 
@@ -202,7 +201,7 @@ onUnmounted(() => {
          <div class="text-xs text-[var(--text-secondary)]">Press <span class="font-bold">Enter</span> to paste</div>
          <div class="flex gap-2">
             <button
-              @click="store.confirmPaste()"
+              @click="confirmAndClose()"
               class="p-1.5 hover:bg-[var(--accent-primary)]/10 rounded text-[var(--accent-primary)] transition-colors"
               title="Paste to cursor"
             >

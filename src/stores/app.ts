@@ -47,6 +47,11 @@ export const useAppStore = defineStore('app', () => {
   // AI Rule Learning
   const ruleSuggestion = ref<RuleSuggestion | null>(null)
 
+  function normalizeCustomRule(rule: CustomRule): CustomRule {
+    // customRules 来源于配置，语义上必然不是内置规则；这里做一次防御性归一化，避免错误持久化导致走 apply_rule
+    return { ...rule, isBuiltin: false }
+  }
+
   // Computed
   const clipboardText = computed(() => clipboardContent.value?.text ?? '')
   const hasContent = computed(() => !!clipboardContent.value?.text)
@@ -141,7 +146,31 @@ export const useAppStore = defineStore('app', () => {
 
     startProcessing()
     try {
-      const result = await commands.applyRule(baseText, ruleId)
+      // 查找规则：区分内置规则和自定义规则
+      const rule = allRules.value.find(r => r.id === ruleId)
+      if (!rule) {
+        throw new Error(`Rule not found: ${ruleId}`)
+      }
+
+      // 通过检查 ID 是否在内置规则列表中判定，不信任 isBuiltin 属性（防止数据污染）
+      const isRealBuiltin = builtinRules.value.some(br => br.id === ruleId)
+
+      let result: string
+      if (isRealBuiltin) {
+        try {
+          result = await commands.applyRule(baseText, ruleId)
+        } catch (e) {
+          // 防御：若后端返回 rule not found，说明并非真实内置规则（可能是旧数据/污染）；回退为自定义规则执行
+          const message = String(e)
+          if (message.includes('rule not found')) {
+            result = await commands.applyCustomRule(baseText, { ...rule, isBuiltin: false })
+          } else {
+            throw e
+          }
+        }
+      } else {
+        result = await commands.applyCustomRule(baseText, { ...rule, isBuiltin: false })
+      }
       finishProcessing(result)
 
       // Write to clipboard first
@@ -220,12 +249,34 @@ Task: ${prompt}
 Content:
 ${clipboardText.value}`
       if (config.value?.enableAIRuleLearning) {
-        fullPrompt += `\n\n---\nAfter completing the task, evaluate if this transformation can be automated as a reusable rule.
-If yes, append a JSON block at the end in this exact format:
+        fullPrompt += `
+
+---
+After completing the task, evaluate if this transformation can be automated as a reusable rule.
+
+COMPATIBILITY CONTRACT (CRITICAL - Rust regex engine):
+- Pattern: Rust regex syntax ONLY. NO lookahead (?=), NO lookbehind (?<=), NO backreferences.
+- Replacement: ONLY supports $1, $2, \${name} for captures. NO \\U, \\L, \\E case modifiers!
+
+DECISION LOGIC:
+1. For case conversion (upper/lower) → USE "to_uppercase" or "to_lowercase", NOT regex_replace
+2. For JSON formatting → USE "json_format" or "json_minify"
+3. For line operations → USE "sort_lines" or "dedupe_lines"
+4. For pattern-based find/replace → USE "regex_replace" with compatible syntax
+
+EXAMPLES:
+✅ CORRECT: {"canBeRule":true,"confidence":0.95,"name":"Convert to Uppercase","pattern":"","replacement":"","transformationType":"to_uppercase"}
+✅ CORRECT: {"canBeRule":true,"confidence":0.9,"name":"Remove digits","pattern":"\\\\d+","replacement":"","transformationType":"regex_replace"}
+❌ WRONG: {"transformationType":"regex_replace","pattern":"(.+)","replacement":"\\\\U$1"} (\\U not supported!)
+❌ WRONG: {"transformationType":"regex_replace","pattern":"(?=foo)bar"} (lookahead not supported!)
+
+If unsure about compatibility, DO NOT output a rule block.
+
+Output format (only if confidence >= 0.8):
 \`\`\`rule
-{"canBeRule":true,"confidence":0.9,"name":"Rule Name","pattern":"regex pattern","replacement":"replacement string","transformationType":"regex_replace"}
+{"canBeRule":true,"confidence":0.9,"name":"Rule Name","pattern":"regex pattern","replacement":"replacement","transformationType":"<type>"}
 \`\`\`
-Only include this if confidence >= 0.8. Valid transformationType: regex_replace, json_format, json_minify, sort_lines, dedupe_lines.`
+Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, to_uppercase, to_lowercase`
       }
 
       await commands.sendAiRequest(fullPrompt, fullConfig, requestId, usePrivacyShield)
@@ -253,28 +304,39 @@ Only include this if confidence >= 0.8. Valid transformationType: regex_replace,
     if (!contentToPaste) return
 
     try {
-      // Use paste-to-cursor with keyboard simulation
+      // Hide window first to return focus to the previous app before simulating paste
+      const appWindow = getCurrentWindow()
+      await appWindow.hide()
+      isVisible.value = false
+
+      // Wait a moment for focus to transfer
+      await new Promise(resolve => setTimeout(resolve, 150))
+
+      // Use paste-to-cursor (may fall back to clipboard-only)
       const result = await commands.pasteToCursor(contentToPaste)
 
       if (result.success) {
+        // Always close panel on success (even clipboard-only fallback)
         if (!result.usedSimulation && result.message) {
-          // Fallback was used, show info message
-          setError(result.message, false)
-          // Still hide after a delay since content is in clipboard
-          setTimeout(() => {
-            hidePanel()
-            reset()
-          }, 1500)
-        } else {
-          // Full success with simulation
-          hidePanel()
-          reset()
+          console.warn('[Paste] Simulation not used:', result.message)
         }
+        hidePanel()
+        reset()
       } else {
-        // Complete failure
+        // Complete failure: show window again so user can see the error
+        await appWindow.show()
+        isVisible.value = true
         setError(result.message || 'Failed to paste', false)
       }
     } catch (e) {
+      // Unexpected errors: show window again so user can see the error
+      try {
+        const appWindow = getCurrentWindow()
+        await appWindow.show()
+        isVisible.value = true
+      } catch {
+        // ignore
+      }
       setError(`Failed to paste: ${e}`, false)
     }
   }
@@ -282,7 +344,11 @@ Only include this if confidence >= 0.8. Valid transformationType: regex_replace,
   // Config Actions
   async function loadConfig() {
     try {
-      config.value = await commands.getConfig()
+      const loaded = await commands.getConfig()
+      config.value = {
+        ...loaded,
+        customRules: (loaded.customRules ?? []).map(normalizeCustomRule),
+      }
       builtinRules.value = await commands.getBuiltinRules()
     } catch (e) {
       console.error('Failed to load config:', e)
@@ -291,8 +357,12 @@ Only include this if confidence >= 0.8. Valid transformationType: regex_replace,
 
   async function saveConfig(newConfig: AppConfig) {
     try {
-      await commands.setConfig(newConfig)
-      config.value = newConfig
+      const normalized: AppConfig = {
+        ...newConfig,
+        customRules: (newConfig.customRules ?? []).map(normalizeCustomRule),
+      }
+      await commands.setConfig(normalized)
+      config.value = normalized
     } catch (e) {
       setError(`Failed to save config: ${e}`)
     }
@@ -321,15 +391,16 @@ Only include this if confidence >= 0.8. Valid transformationType: regex_replace,
 
   async function saveCustomRule(rule: CustomRule) {
     if (!config.value) return
+    const normalizedRule = normalizeCustomRule(rule)
     // Check if ID exists
-    const exists = config.value.customRules.some(r => r.id === rule.id)
+    const exists = config.value.customRules.some(r => r.id === normalizedRule.id)
     if (exists) {
       // Update existing
-      const newRules = config.value.customRules.map(r => r.id === rule.id ? rule : r)
+      const newRules = config.value.customRules.map(r => r.id === normalizedRule.id ? normalizedRule : r)
       await saveConfig({ ...config.value, customRules: newRules })
     } else {
       // Add new
-      const newRules = [...config.value.customRules, rule]
+      const newRules = [...config.value.customRules, normalizedRule]
       await saveConfig({ ...config.value, customRules: newRules })
     }
   }
@@ -349,6 +420,15 @@ Only include this if confidence >= 0.8. Valid transformationType: regex_replace,
 
   async function saveRuleSuggestion() {
     if (!ruleSuggestion.value || !config.value) return
+
+    // 双重验证：仅 regex_replace 类型需要验证 pattern
+    if (ruleSuggestion.value.transformationType === 'regex_replace' &&
+        !validateRulePattern(ruleSuggestion.value.pattern)) {
+      console.error('[AI Rule] Cannot save: invalid pattern')
+      ruleSuggestion.value = null
+      return
+    }
+
     const s = ruleSuggestion.value
     const newRule: CustomRule = {
       id: `ai_${Date.now()}`,
@@ -460,17 +540,62 @@ Only include this if confidence >= 0.8. Valid transformationType: regex_replace,
     if (payload.requestId !== currentRequestId.value) return
 
     if (payload.done) {
-      // Parse rule suggestion if present
-      const ruleMatch = payload.content.match(/```rule\s*([\s\S]*?)```/)
+      // Parse rule suggestion if present (支持多种格式)
+      // 格式1: ```rule\n{JSON}\n``` (标准 Markdown)
+      // 格式2: rule\n{JSON} (无反引号，AI 常见输出)
+      // 格式3: ---\nrule\n{JSON} (带分隔符)
+      const rulePatterns = [
+        /```rule\s*([\s\S]*?)```/,                    // 标准 Markdown 代码块
+        /(?:^|\n)rule\s*\n?(\{[\s\S]*?"canBeRule"[\s\S]*?\})/,  // 无反引号，匹配包含 canBeRule 的 JSON
+        /---\s*\n?rule\s*\n?(\{[\s\S]*?\})\s*$/,      // 带分隔符格式
+      ]
+
+      let ruleMatch: RegExpMatchArray | null = null
+      for (const pattern of rulePatterns) {
+        ruleMatch = payload.content.match(pattern)
+        if (ruleMatch) {
+          console.log('[AI Rule] Matched with pattern:', pattern)
+          break
+        }
+      }
+
       if (ruleMatch) {
         try {
-          const suggestion = JSON.parse(ruleMatch[1].trim()) as RuleSuggestion
+          let suggestion = JSON.parse(ruleMatch[1].trim()) as RuleSuggestion
           if (suggestion.canBeRule && suggestion.confidence >= 0.8) {
-            ruleSuggestion.value = suggestion
+            // 尝试自动修复/转换不兼容的规则
+            suggestion = autoFixIncompatibleRule(suggestion)
+
+            // 验证 transformationType 有效性（优先检查）
+            if (!isValidTransformationType(suggestion.transformationType)) {
+              console.warn('[AI Rule] Invalid transformation type:', suggestion.transformationType)
+            }
+            // 检查不支持的 replacement 语法
+            else if (suggestion.transformationType === 'regex_replace' && hasIncompatibleReplacementSyntax(suggestion.replacement)) {
+              console.warn('[AI Rule] Incompatible replacement syntax detected, skipping suggestion')
+            }
+            // 按类型分流校验：仅 regex_replace 需要验证 pattern
+            else if (suggestion.transformationType === 'regex_replace' && !validateRulePattern(suggestion.pattern)) {
+              console.warn('[AI Rule] Invalid pattern for regex_replace, skipping suggestion')
+            }
+            // 检查重复规则（考虑类型）
+            else if (isDuplicateRule(suggestion)) {
+              console.log('[AI Rule] Duplicate rule detected, skipping suggestion')
+            }
+            else {
+              ruleSuggestion.value = suggestion
+            }
           }
-        } catch { /* ignore parse errors */ }
-        // Remove rule block from displayed content
-        const cleanContent = payload.content.replace(/\n*---\n*```rule[\s\S]*?```\s*$/, '').trim()
+        } catch (e) {
+          console.warn('[AI Rule] Failed to parse suggestion:', e)
+        }
+        // Remove rule block from displayed content (匹配多种格式)
+        let cleanContent = payload.content
+          .replace(/\n*---\n*```rule[\s\S]*?```\s*$/, '')       // 标准格式 with ---
+          .replace(/```rule[\s\S]*?```\s*$/, '')               // 标准格式 without ---
+          .replace(/\n*---\n*rule\s*\n?\{[\s\S]*?\}\s*$/, '')  // 无反引号 with ---
+          .replace(/\nrule\s*\n?\{[\s\S]*?"canBeRule"[\s\S]*?\}\s*$/, '') // 无反引号 without ---
+          .trim()
         finishProcessing(cleanContent)
       } else {
         finishProcessing(payload.content)
@@ -478,6 +603,91 @@ Only include this if confidence >= 0.8. Valid transformationType: regex_replace,
     } else {
       appendStreamContent(payload.content)
     }
+  }
+
+  // 有效的转换类型常量
+  const VALID_TRANSFORM_TYPES = ['regex_replace', 'json_format', 'json_minify', 'sort_lines', 'dedupe_lines', 'to_uppercase', 'to_lowercase'] as const
+
+  // 检测不支持的 replacement 语法（Rust regex 不支持 \U, \L, \E 等）
+  function hasIncompatibleReplacementSyntax(replacement: string): boolean {
+    if (!replacement) return false
+    // 检测 \U, \L, \E 等 Perl 风格的大小写转换语法
+    // 也检测 \1 风格的引用（Rust 用 $1）
+    return /\\[ULE]|\\[0-9]/.test(replacement)
+  }
+
+  // 自动修复/转换不兼容的规则
+  function autoFixIncompatibleRule(suggestion: RuleSuggestion): RuleSuggestion {
+    // 场景1: AI 用了 \U$1 做大写转换 → 转为 to_uppercase
+    if (suggestion.transformationType === 'regex_replace' && suggestion.replacement) {
+      const replacement = suggestion.replacement
+      // 检测大写转换意图: \U$1, \U$0, \U${0}, \\U$1 等
+      if (/\\U\$[01]|\\U\$\{[01]\}/.test(replacement)) {
+        // 检查 pattern 是否是全量捕获（如 .*, (.+), (?s)(.*) 等）
+        const fullCapturePatterns = /^(\.\*|\(\.\+\)|\(\?\:?\.\*\)|\(\?s\)\(\.\*\)|\.+)$/
+        if (!suggestion.pattern || fullCapturePatterns.test(suggestion.pattern)) {
+          console.log('[AI Rule] Auto-converting \\U replacement to to_uppercase')
+          return {
+            ...suggestion,
+            transformationType: 'to_uppercase',
+            pattern: '',
+            replacement: ''
+          }
+        }
+      }
+      // 检测小写转换意图: \L$1, \L$0 等
+      if (/\\L\$[01]|\\L\$\{[01]\}/.test(replacement)) {
+        const fullCapturePatterns = /^(\.\*|\(\.\+\)|\(\?\:?\.\*\)|\(\?s\)\(\.\*\)|\.+)$/
+        if (!suggestion.pattern || fullCapturePatterns.test(suggestion.pattern)) {
+          console.log('[AI Rule] Auto-converting \\L replacement to to_lowercase')
+          return {
+            ...suggestion,
+            transformationType: 'to_lowercase',
+            pattern: '',
+            replacement: ''
+          }
+        }
+      }
+    }
+    return suggestion
+  }
+
+  // 验证正则 pattern 有效性
+  function validateRulePattern(pattern: string): boolean {
+    if (!pattern || pattern.length === 0 || pattern.length > 500) {
+      return false
+    }
+    try {
+      new RegExp(pattern)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // 检查是否为重复规则（按类型区分判重键）
+  function isDuplicateRule(suggestion: RuleSuggestion): boolean {
+    const customRules = config.value?.customRules ?? []
+
+    // regex_replace: pattern + replacement + type
+    if (suggestion.transformationType === 'regex_replace') {
+      return customRules.some(
+        r => r.transformationType === 'regex_replace' &&
+             r.pattern === suggestion.pattern &&
+             r.replacement === suggestion.replacement
+      )
+    }
+
+    // 其他类型: name + type（同名同类型视为重复）
+    return customRules.some(
+      r => r.transformationType === suggestion.transformationType &&
+           r.name === suggestion.name
+    )
+  }
+
+  // 验证 transformationType 有效性
+  function isValidTransformationType(type: string): boolean {
+    return VALID_TRANSFORM_TYPES.includes(type as typeof VALID_TRANSFORM_TYPES[number])
   }
 
   function handleAIError(payload: { code: string; message: string; requestId: string }) {

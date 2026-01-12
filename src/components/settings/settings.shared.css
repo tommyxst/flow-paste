@@ -189,3 +189,43 @@
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Toggle Group (启用/关闭 开关) */
+.toggle-group {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.03);
+  padding: 3px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.dark .toggle-group {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.toggle-option {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toggle-option:hover {
+  color: var(--text-primary);
+}
+
+.toggle-option.active {
+  background: white;
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dark .toggle-option.active {
+  background: rgba(255, 255, 255, 0.1);
+}

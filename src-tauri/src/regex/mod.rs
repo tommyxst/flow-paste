@@ -16,6 +16,8 @@ pub enum TransformationType {
     JsonMinify,
     SortLines,
     DedupeLines,
+    ToUppercase,
+    ToLowercase,
 }
 
 impl Default for TransformationType {
@@ -185,6 +187,8 @@ fn apply_compiled_rule(text: &str, compiled: &CompiledRule) -> Result<String, Re
         TransformationType::JsonMinify => minify_json(text),
         TransformationType::SortLines => Ok(sort_lines(text)),
         TransformationType::DedupeLines => Ok(dedupe_lines(text)),
+        TransformationType::ToUppercase => Ok(text.to_uppercase()),
+        TransformationType::ToLowercase => Ok(text.to_lowercase()),
         TransformationType::RegexReplace => apply_regex_rule(text, compiled),
     }
 }

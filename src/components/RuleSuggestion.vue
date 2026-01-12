@@ -1,36 +1,317 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import { useAppStore } from '@/stores/app'
-import { Sparkles, X, Check } from 'lucide-vue-next'
+import { Sparkles, X, Check, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-vue-next'
+import type { TransformationType } from '@/types'
 
 const store = useAppStore()
+const showDetails = ref(false)
+
+// 转换类型映射为可读标签
+const transformTypeLabels: Record<TransformationType, string> = {
+  'regex_replace': '正则替换',
+  'json_format': 'JSON 格式化',
+  'json_minify': 'JSON 压缩',
+  'sort_lines': '行排序',
+  'dedupe_lines': '行去重',
+  'to_uppercase': '转大写',
+  'to_lowercase': '转小写',
+}
+
+// 置信度颜色：绿 ≥0.9，黄 ≥0.8，红 <0.8（防御性）
+const confidenceClass = computed(() => {
+  if (!store.ruleSuggestion) return ''
+  const conf = store.ruleSuggestion.confidence
+  if (conf >= 0.9) return 'high'
+  if (conf >= 0.8) return 'medium'
+  return 'low' // 防御性：store 层已过滤 <0.8，但组件应自洽
+})
+
+const confidencePercent = computed(() => {
+  if (!store.ruleSuggestion) return '0%'
+  return Math.round(store.ruleSuggestion.confidence * 100) + '%'
+})
+
+const transformTypeLabel = computed(() => {
+  if (!store.ruleSuggestion) return ''
+  return transformTypeLabels[store.ruleSuggestion.transformationType] || store.ruleSuggestion.transformationType
+})
+
+// 验证 pattern 是否有效
+const patternError = computed(() => {
+  if (!store.ruleSuggestion?.pattern) return null
+  try {
+    new RegExp(store.ruleSuggestion.pattern)
+    return null
+  } catch (e) {
+    return (e as Error).message
+  }
+})
+
+const canSave = computed(() => !patternError.value)
+
+function handleSave() {
+  if (canSave.value) {
+    store.saveRuleSuggestion()
+  }
+}
 </script>
 
 <template>
   <div
     v-if="store.ruleSuggestion"
-    class="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
+    class="rule-suggestion"
   >
-    <Sparkles class="w-4 h-4 text-amber-500 shrink-0" />
-    <div class="flex-1 min-w-0">
-      <p class="text-sm text-amber-800 dark:text-amber-200 truncate">
-        可保存为快捷规则: <span class="font-medium">{{ store.ruleSuggestion.name }}</span>
-      </p>
+    <!-- 主行：名称 + 置信度徽章 + 操作按钮 -->
+    <div class="suggestion-header">
+      <Sparkles class="w-4 h-4 text-amber-500 shrink-0" />
+      <div class="suggestion-info">
+        <p class="suggestion-title">
+          可保存为快捷规则: <span class="font-medium">{{ store.ruleSuggestion.name }}</span>
+        </p>
+        <div class="suggestion-meta">
+          <span class="confidence-badge" :class="confidenceClass">
+            {{ confidencePercent }}
+          </span>
+          <span class="type-label">{{ transformTypeLabel }}</span>
+        </div>
+      </div>
+      <div class="suggestion-actions">
+        <button
+          @click="showDetails = !showDetails"
+          class="action-btn toggle"
+          :title="showDetails ? '收起详情' : '展开详情'"
+        >
+          <ChevronUp v-if="showDetails" class="w-3.5 h-3.5" />
+          <ChevronDown v-else class="w-3.5 h-3.5" />
+        </button>
+        <button
+          @click="handleSave"
+          class="action-btn save"
+          :class="{ disabled: !canSave }"
+          :disabled="!canSave"
+          title="保存规则"
+        >
+          <Check class="w-3.5 h-3.5" />
+        </button>
+        <button
+          @click="store.dismissRuleSuggestion()"
+          class="action-btn dismiss"
+          title="忽略"
+        >
+          <X class="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
-    <div class="flex gap-1 shrink-0">
-      <button
-        @click="store.saveRuleSuggestion()"
-        class="p-1.5 rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-        title="保存规则"
-      >
-        <Check class="w-3.5 h-3.5" />
-      </button>
-      <button
-        @click="store.dismissRuleSuggestion()"
-        class="p-1.5 rounded text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
-        title="忽略"
-      >
-        <X class="w-3.5 h-3.5" />
-      </button>
+
+    <!-- 详情区（可折叠） -->
+    <div v-if="showDetails" class="suggestion-details">
+      <div class="detail-item">
+        <span class="detail-label">匹配模式:</span>
+        <code class="detail-pattern">{{ store.ruleSuggestion.pattern }}</code>
+      </div>
+      <div v-if="store.ruleSuggestion.replacement" class="detail-item">
+        <span class="detail-label">替换为:</span>
+        <code class="detail-pattern">{{ store.ruleSuggestion.replacement }}</code>
+      </div>
+      <div v-if="patternError" class="pattern-error">
+        <AlertTriangle class="w-3 h-3" />
+        <span>正则无效: {{ patternError }}</span>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.rule-suggestion {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.05));
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.dark .rule-suggestion {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.05));
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.suggestion-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggestion-title {
+  font-size: 12px;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.confidence-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.confidence-badge.high {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.confidence-badge.medium {
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+}
+
+.confidence-badge.low {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.dark .confidence-badge.high {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.dark .confidence-badge.medium {
+  background: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+}
+
+.dark .confidence-badge.low {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.type-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.suggestion-actions {
+  display: flex;
+  gap: 4px;
+  shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.action-btn.toggle {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.action-btn.toggle:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+.dark .action-btn.toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.action-btn.save {
+  background: #f59e0b;
+  color: white;
+}
+
+.action-btn.save:hover:not(.disabled) {
+  background: #d97706;
+}
+
+.action-btn.save.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn.dismiss {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.action-btn.dismiss:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 详情区 */
+.suggestion-details {
+  padding: 8px 12px 10px;
+  border-top: 1px solid rgba(251, 191, 36, 0.15);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.dark .suggestion-details {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.detail-pattern {
+  font-size: 11px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  word-break: break-all;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+.dark .detail-pattern {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pattern-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #ef4444;
+}
+</style>

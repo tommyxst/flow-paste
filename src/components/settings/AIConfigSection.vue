@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch, toRef } from 'vue'
-import { Bot } from 'lucide-vue-next'
+import { Bot, Sparkles } from 'lucide-vue-next'
 import type { AppConfig } from '@/types'
 import { useAIConfig } from '@/composables/useAIConfig'
 import type { FlatSettingsErrors } from '@/composables/useSettingsValidation'
@@ -81,6 +81,33 @@ function onTestConnection() {
       :test-result="testResult"
       @test="onTestConnection"
     />
+
+    <!-- AI 规则学习开关 -->
+    <div class="field-group">
+      <label class="field-label">
+        <Sparkles :size="14" />
+        <span>AI 规则学习</span>
+      </label>
+      <div class="toggle-group">
+        <button
+          type="button"
+          @click="formData.enableAIRuleLearning = true"
+          class="toggle-option"
+          :class="{ active: formData.enableAIRuleLearning }"
+        >
+          启用
+        </button>
+        <button
+          type="button"
+          @click="formData.enableAIRuleLearning = false"
+          class="toggle-option"
+          :class="{ active: !formData.enableAIRuleLearning }"
+        >
+          关闭
+        </button>
+      </div>
+      <p class="field-hint">启用后，AI 格式化完成时会建议可复用的快捷规则</p>
+    </div>
   </SettingsSectionShell>
 </template>
 

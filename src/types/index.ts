@@ -64,7 +64,7 @@ export type PanelMode = 'idle' | 'preview' | 'processing' | 'result'
 // ============================================================
 // Rule Types
 // ============================================================
-export type TransformationType = 'regex_replace' | 'json_format' | 'json_minify' | 'sort_lines' | 'dedupe_lines'
+export type TransformationType = 'regex_replace' | 'json_format' | 'json_minify' | 'sort_lines' | 'dedupe_lines' | 'to_uppercase' | 'to_lowercase'
 
 export interface Rule {
   id: string
@@ -220,11 +220,12 @@ export interface TauriCommands {
   maskPii: (text: string) => Promise<{ masked: string; mapping: MaskMapping }>
   restorePii: (text: string, mapping: MaskMapping) => Promise<string>
   getConfig: () => Promise<AppConfig>
-  setConfig: (config: Partial<AppConfig>) => Promise<void>
+  setConfig: (config: AppConfig) => Promise<void>
   getApiKey: (provider: string) => Promise<string>
   setApiKey: (provider: string, key: string) => Promise<void>
   listLocalModels: () => Promise<ModelInfo[]>
   applyRule: (text: string, ruleId: string) => Promise<string>
+  applyCustomRule: (text: string, rule: Rule) => Promise<string>
   getBuiltinRules: () => Promise<Rule[]>
 }
 
