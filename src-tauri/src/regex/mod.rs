@@ -194,10 +194,15 @@ fn apply_compiled_rule(text: &str, compiled: &CompiledRule) -> Result<String, Re
 }
 
 fn format_json(text: &str) -> Result<String, RegexError> {
-    let value: serde_json::Value = serde_json::from_str(text)
-        .map_err(|e| RegexError::InvalidJson(e.to_string()))?;
-    serde_json::to_string_pretty(&value)
-        .map_err(|e| RegexError::InvalidJson(e.to_string()))
+    match serde_json::from_str::<serde_json::Value>(text) {
+        Ok(value) => serde_json::to_string_pretty(&value)
+            .map_err(|e| RegexError::InvalidJson(e.to_string())),
+        Err(_) => {
+            let wrapped = serde_json::json!({ "text": text.trim() });
+            serde_json::to_string_pretty(&wrapped)
+                .map_err(|e| RegexError::InvalidJson(e.to_string()))
+        }
+    }
 }
 
 fn minify_json(text: &str) -> Result<String, RegexError> {

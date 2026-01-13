@@ -18,28 +18,34 @@ const availableRulesToAdd = computed(() => {
   return allRules.filter((r: Rule) => !pinned.has(r.id))
 })
 
-function moveRuleUp(index: number) {
+async function moveRuleUp(index: number) {
   if (index <= 0) return
   const arr = [...props.formData.pinnedRuleIds]
   ;[arr[index - 1], arr[index]] = [arr[index], arr[index - 1]]
   props.formData.pinnedRuleIds = arr
+  await store.saveConfig({ ...store.config!, pinnedRuleIds: arr })
 }
 
-function moveRuleDown(index: number) {
+async function moveRuleDown(index: number) {
   if (index >= props.formData.pinnedRuleIds.length - 1) return
   const arr = [...props.formData.pinnedRuleIds]
   ;[arr[index], arr[index + 1]] = [arr[index + 1], arr[index]]
   props.formData.pinnedRuleIds = arr
+  await store.saveConfig({ ...store.config!, pinnedRuleIds: arr })
 }
 
-function removeFromPinned(index: number) {
-  props.formData.pinnedRuleIds = props.formData.pinnedRuleIds.filter((_, i) => i !== index)
+async function removeFromPinned(index: number) {
+  const newIds = props.formData.pinnedRuleIds.filter((_, i) => i !== index)
+  props.formData.pinnedRuleIds = newIds
+  await store.saveConfig({ ...store.config!, pinnedRuleIds: newIds })
 }
 
-function addToPinned() {
+async function addToPinned() {
   if (!selectedRuleToAdd.value) return
-  props.formData.pinnedRuleIds = [...props.formData.pinnedRuleIds, selectedRuleToAdd.value]
+  const newIds = [...props.formData.pinnedRuleIds, selectedRuleToAdd.value]
+  props.formData.pinnedRuleIds = newIds
   selectedRuleToAdd.value = ''
+  await store.saveConfig({ ...store.config!, pinnedRuleIds: newIds })
 }
 </script>
 

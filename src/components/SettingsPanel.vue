@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Settings, X, Loader2, Check, AlertCircle } from 'lucide-vue-next'
 import { useSettingsDraft } from '@/composables/useSettingsDraft'
 import { useSettingsSecrets } from '@/composables/useSettingsSecrets'
@@ -26,6 +27,11 @@ onMounted(async () => {
   await loadApiKey()
   requestAnimationFrame(() => { isVisible.value = true })
 })
+
+async function startDrag() {
+  const appWindow = getCurrentWindow()
+  await appWindow.startDragging()
+}
 
 async function handleSave() {
   const result = await save(
@@ -53,7 +59,7 @@ function handleCancel() { emit('close') }
 
 <template>
   <div class="settings-panel" :class="{ 'is-visible': isVisible }">
-    <header class="panel-header">
+    <header class="panel-header" @mousedown="startDrag">
       <div class="header-title">
         <div class="header-icon"><Settings :size="18" /></div>
         <h2>设置</h2>
