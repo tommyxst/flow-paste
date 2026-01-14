@@ -3,9 +3,11 @@ mod ollama;
 mod openai;
 mod types;
 pub mod intent;
+pub mod analyzer;
 
 pub use provider::AiProvider;
 pub use ollama::OllamaProvider;
 pub use openai::OpenAIProvider;
 pub use types::*;
 pub use intent::{detect_intent, ActionChip};
+pub use analyzer::IntentAnalyzer;

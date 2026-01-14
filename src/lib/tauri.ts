@@ -17,6 +17,7 @@ import type {
   Rule,
   PerfReport,
   ActionChip,
+  RuleValidationResult,
 } from '@/types'
 
 const log = createModuleLogger('tauri')
@@ -125,6 +126,17 @@ export const commands = {
     invokeCommand<string>('apply_rule', { text, ruleId }),
   applyCustomRule: (text: string, rule: Rule) =>
     invokeCommand<string>('apply_custom_rule', { text, rule }),
+
+  // Rule CRUD commands
+  listAllRules: () => invokeCommand<Rule[]>('list_all_rules'),
+  upsertRule: (rule: Rule) =>
+    invokeCommand<RuleValidationResult>('upsert_rule', { rule }),
+  deleteRule: (ruleId: string) =>
+    invokeCommand<boolean>('delete_rule', { ruleId }),
+  reorderPinnedRules: (ruleIds: string[]) =>
+    invokeCommand<void>('reorder_pinned_rules', { ruleIds }),
+  validateRuleCmd: (rule: Rule) =>
+    invokeCommand<RuleValidationResult>('validate_rule_cmd', { rule }),
 
   // Hotkey commands
   registerHotkey: (hotkey: string) =>

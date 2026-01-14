@@ -52,7 +52,7 @@ pub fn detect_intent(text: &str) -> Vec<ActionChip> {
     generate_action_chips(content_type, text)
 }
 
-fn detect_content_type(text: &str) -> ContentType {
+pub fn detect_content_type(text: &str) -> ContentType {
     let trimmed = text.trim();
 
     // JSON detection (highest priority for structured data)

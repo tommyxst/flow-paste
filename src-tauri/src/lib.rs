@@ -9,6 +9,7 @@ mod config;
 mod regex;
 mod hotkey;
 mod performance;
+mod rules;
 
 use commands::AIState;
 use config::ConfigManager;
@@ -93,6 +94,11 @@ pub fn run() {
             commands::get_builtin_rules,
             commands::apply_rule,
             commands::apply_custom_rule,
+            commands::list_all_rules,
+            commands::upsert_rule,
+            commands::delete_rule,
+            commands::reorder_pinned_rules,
+            commands::validate_rule_cmd,
             commands::register_hotkey,
             commands::unregister_hotkey,
             performance::report_render_timestamp,

@@ -26,6 +26,18 @@ impl Default for TransformationType {
     }
 }
 
+/// 规则来源
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum RuleOrigin {
+    Builtin,
+    #[default]
+    User,
+    Ai,
+}
+
+fn default_true() -> bool { true }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rule {
@@ -39,6 +51,14 @@ pub struct Rule {
     #[serde(default)]
     pub replacement: String,
     pub is_builtin: bool,
+    #[serde(default)]
+    pub origin: RuleOrigin,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub order: Option<i32>,
 }
 
 #[derive(Debug, Error)]
@@ -70,6 +90,10 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
             pattern: r"[ \t]+".to_string(),
             replacement: String::new(),
             is_builtin: true,
+            origin: RuleOrigin::Builtin,
+            category: Some("cleanup".to_string()),
+            enabled: true,
+            order: Some(1),
         },
         Rule {
             id: "remove_newlines".to_string(),
@@ -79,6 +103,10 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
             pattern: r"[\r\n]+".to_string(),
             replacement: String::new(),
             is_builtin: true,
+            origin: RuleOrigin::Builtin,
+            category: Some("cleanup".to_string()),
+            enabled: true,
+            order: Some(2),
         },
         Rule {
             id: "remove_empty_lines".to_string(),
@@ -88,6 +116,10 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
             pattern: r"\n\s*\n+".to_string(),
             replacement: "\n".to_string(),
             is_builtin: true,
+            origin: RuleOrigin::Builtin,
+            category: Some("cleanup".to_string()),
+            enabled: true,
+            order: Some(3),
         },
         Rule {
             id: "to_plain_text".to_string(),
@@ -97,6 +129,10 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
             pattern: r"(\*\*|__|~~|`|<[^>]+>|\[([^\]]+)\]\([^)]+\))".to_string(),
             replacement: "$2".to_string(),
             is_builtin: true,
+            origin: RuleOrigin::Builtin,
+            category: Some("format".to_string()),
+            enabled: true,
+            order: Some(4),
         },
         Rule {
             id: "format_json".to_string(),
@@ -106,6 +142,10 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
             pattern: String::new(),
             replacement: String::new(),
             is_builtin: true,
+            origin: RuleOrigin::Builtin,
+            category: Some("json".to_string()),
+            enabled: true,
+            order: Some(5),
         },
         Rule {
             id: "sort_lines".to_string(),
@@ -115,6 +155,10 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
             pattern: String::new(),
             replacement: String::new(),
             is_builtin: true,
+            origin: RuleOrigin::Builtin,
+            category: Some("lines".to_string()),
+            enabled: true,
+            order: Some(6),
         },
         Rule {
             id: "dedupe_lines".to_string(),
@@ -124,6 +168,10 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
             pattern: String::new(),
             replacement: String::new(),
             is_builtin: true,
+            origin: RuleOrigin::Builtin,
+            category: Some("lines".to_string()),
+            enabled: true,
+            order: Some(7),
         },
     ];
 

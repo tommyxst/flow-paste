@@ -66,6 +66,8 @@ export type PanelMode = 'idle' | 'preview' | 'processing' | 'result'
 // ============================================================
 export type TransformationType = 'regex_replace' | 'json_format' | 'json_minify' | 'sort_lines' | 'dedupe_lines' | 'to_uppercase' | 'to_lowercase'
 
+export type RuleOrigin = 'builtin' | 'user' | 'ai'
+
 export interface Rule {
   id: string
   name: string
@@ -74,14 +76,23 @@ export interface Rule {
   pattern: string
   replacement: string
   isBuiltin: boolean
+  origin?: RuleOrigin
+  category?: string
+  enabled?: boolean
+  order?: number
 }
 
 export interface CustomRule extends Rule {
   sourcePrompt?: string
-  createdBy?: 'builtin' | 'user' | 'ai'
   createdAt?: number
   usageCount?: number
   lastUsedAt?: number
+}
+
+export interface RuleValidationResult {
+  valid: boolean
+  errors: string[]
+  warnings: string[]
 }
 
 // ============================================================
@@ -227,6 +238,12 @@ export interface TauriCommands {
   applyRule: (text: string, ruleId: string) => Promise<string>
   applyCustomRule: (text: string, rule: Rule) => Promise<string>
   getBuiltinRules: () => Promise<Rule[]>
+  // New CRUD commands
+  listAllRules: () => Promise<Rule[]>
+  upsertRule: (rule: Rule) => Promise<RuleValidationResult>
+  deleteRule: (ruleId: string) => Promise<boolean>
+  reorderPinnedRules: (ruleIds: string[]) => Promise<void>
+  validateRuleCmd: (rule: Rule) => Promise<RuleValidationResult>
 }
 
 // ============================================================

@@ -7,8 +7,11 @@ use std::collections::HashMap;
 use crate::ai::{
     AIConfig, AIError, AIProviderType, AiProvider, ChatMessage, ModelInfo,
     OllamaProvider, OpenAIProvider, StreamChunk, ActionChip, detect_intent,
+    IntentAnalyzer,
 };
 use crate::privacy::{self};
+use crate::config::ConfigManager;
+use crate::rules::RuleCatalog;
 
 pub struct AIState {
     ollama: OllamaProvider,
@@ -255,6 +258,16 @@ pub async fn cancel_ai_request(
 }
 
 #[tauri::command]
-pub fn detect_content_intent(text: String) -> Vec<ActionChip> {
+pub fn detect_content_intent(
+    text: String,
+    config_manager: State<ConfigManager>,
+) -> Vec<ActionChip> {
+    // 尝试使用新的 IntentAnalyzer
+    if let Ok(config) = config_manager.get_config() {
+        let rules = RuleCatalog::all_rules(&config);
+        let analyzer = IntentAnalyzer::new(&rules, &config.pinned_rule_ids);
+        return analyzer.analyze(&text);
+    }
+    // 降级到旧的实现
     detect_intent(&text)
 }
