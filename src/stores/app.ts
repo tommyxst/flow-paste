@@ -257,27 +257,42 @@ ${clipboardText.value}`
 ---
 After completing the task, evaluate if this transformation can be automated as a reusable rule.
 
-COMPATIBILITY CONTRACT (CRITICAL - Rust regex engine):
-- Pattern: Rust regex syntax ONLY. NO lookahead (?=), NO lookbehind (?<=), NO backreferences.
-- Replacement: ONLY supports $1, $2, \${name} for captures. NO \\U, \\L, \\E case modifiers!
+⚠️ CRITICAL: RUST REGEX COMPATIBILITY REQUIREMENTS ⚠️
+The regex engine is Rust's "regex" crate which has STRICT limitations for security and performance.
 
-DECISION LOGIC:
-1. For case conversion (upper/lower) → USE "to_uppercase" or "to_lowercase", NOT regex_replace
-2. For JSON formatting → USE "json_format" or "json_minify"
-3. For line operations → USE "sort_lines" or "dedupe_lines"
-4. For pattern-based find/replace → USE "regex_replace" with compatible syntax
+FORBIDDEN SYNTAX (will cause save/execution to FAIL):
+❌ Lookahead: (?=...), (?!...)
+❌ Lookbehind: (?<=...), (?<!...)
+❌ Backreferences: \\1, \\2, \\k<name>
+❌ Case modifiers in replacement: \\U, \\L, \\E
+❌ Atomic groups: (?>...)
+❌ Possessive quantifiers: *+, ++, ?+
+
+ALLOWED SYNTAX:
+✅ Basic patterns: \\d, \\w, \\s, ., ^, $, |, [], ()
+✅ Quantifiers: *, +, ?, {n}, {n,}, {n,m}
+✅ Non-capturing groups: (?:...)
+✅ Named captures: (?P<name>...)
+✅ Replacement refs: $1, $2, \${name}
+
+DECISION LOGIC (prefer built-in types over regex):
+1. Case conversion → USE "to_uppercase" or "to_lowercase" (NOT regex!)
+2. JSON formatting → USE "json_format" or "json_minify"
+3. Line operations → USE "sort_lines" or "dedupe_lines"
+4. Simple find/replace → USE "regex_replace" with BASIC patterns only
 
 EXAMPLES:
-✅ CORRECT: {"canBeRule":true,"confidence":0.95,"name":"Convert to Uppercase","pattern":"","replacement":"","transformationType":"to_uppercase"}
-✅ CORRECT: {"canBeRule":true,"confidence":0.9,"name":"Remove digits","pattern":"\\\\d+","replacement":"","transformationType":"regex_replace"}
-❌ WRONG: {"transformationType":"regex_replace","pattern":"(.+)","replacement":"\\\\U$1"} (\\U not supported!)
-❌ WRONG: {"transformationType":"regex_replace","pattern":"(?=foo)bar"} (lookahead not supported!)
+✅ {\"canBeRule\":true,\"confidence\":0.95,\"name\":\"Convert to Uppercase\",\"pattern\":\"\",\"replacement\":\"\",\"transformationType\":\"to_uppercase\"}
+✅ {\"canBeRule\":true,\"confidence\":0.9,\"name\":\"Remove digits\",\"pattern\":\"\\\\d+\",\"replacement\":\"\",\"transformationType\":\"regex_replace\"}
+✅ {\"canBeRule\":true,\"confidence\":0.85,\"name\":\"Trim whitespace\",\"pattern\":\"^\\\\s+|\\\\s+$\",\"replacement\":\"\",\"transformationType\":\"regex_replace\"}
+❌ {\"pattern\":\"(\\\\d)(?=(\\\\d{3})+$)\"} - lookahead (?=) NOT supported!
+❌ {\"replacement\":\"\\\\U$1\"} - case modifier \\U NOT supported!
 
-If unsure about compatibility, DO NOT output a rule block.
+🚨 IMPORTANT: If the transformation requires lookahead/lookbehind/backreferences, DO NOT suggest a rule. These patterns CANNOT be saved or executed.
 
-Output format (only if confidence >= 0.8):
+Output format (only if confidence >= 0.8 AND pattern is Rust-compatible):
 \`\`\`rule
-{"canBeRule":true,"confidence":0.9,"name":"Rule Name","pattern":"regex pattern","replacement":"replacement","transformationType":"<type>"}
+{\"canBeRule\":true,\"confidence\":0.9,\"name\":\"Rule Name\",\"pattern\":\"regex pattern\",\"replacement\":\"replacement\",\"transformationType\":\"<type>\"}
 \`\`\`
 Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, to_uppercase, to_lowercase`
       }
@@ -596,6 +611,10 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
             else if (suggestion.transformationType === 'regex_replace' && hasIncompatibleReplacementSyntax(suggestion.replacement)) {
               console.warn('[AI Rule] Incompatible replacement syntax detected, skipping suggestion')
             }
+            // 检查不支持的 pattern 语法（lookaround, backreferences 等）
+            else if (suggestion.transformationType === 'regex_replace' && hasIncompatiblePatternSyntax(suggestion.pattern)) {
+              console.warn('[AI Rule] Incompatible pattern syntax (lookaround/backreference) detected, skipping suggestion')
+            }
             // 按类型分流校验：仅 regex_replace 需要验证 pattern
             else if (suggestion.transformationType === 'regex_replace' && !validateRulePattern(suggestion.pattern)) {
               console.warn('[AI Rule] Invalid pattern for regex_replace, skipping suggestion')
@@ -636,6 +655,17 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     // 检测 \U, \L, \E 等 Perl 风格的大小写转换语法
     // 也检测 \1 风格的引用（Rust 用 $1）
     return /\\[ULE]|\\[0-9]/.test(replacement)
+  }
+
+  // 检测不支持的 pattern 语法（Rust regex 不支持 lookaround, backreferences 等）
+  function hasIncompatiblePatternSyntax(pattern: string): boolean {
+    if (!pattern) return false
+    // 检测 lookahead: (?=...), (?!...)
+    // 检测 lookbehind: (?<=...), (?<!...)
+    // 检测 backreferences: \1, \2, \k<name>
+    // 检测 atomic groups: (?>...)
+    // 检测 possessive quantifiers: *+, ++, ?+, }+
+    return /\(\?[=!<>]|\(\?\<[=!]|\\[1-9]|\\k<|\*\+|\+\+|\?\+|\}\+/.test(pattern)
   }
 
   // 自动修复/转换不兼容的规则
