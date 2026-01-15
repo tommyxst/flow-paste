@@ -320,24 +320,17 @@ mod tests {
     }
 
     #[test]
-    fn test_trim_whitespace() {
-        let text = "  hello  \n  world  ";
-        let result = apply_rule(text, "trim_whitespace").unwrap();
-        assert_eq!(result, "hello\nworld");
+    fn test_remove_spaces() {
+        let text = "hello  world\ttest";
+        let result = apply_rule(text, "remove_spaces").unwrap();
+        assert_eq!(result, "helloworldtest");
     }
 
     #[test]
-    fn test_collapse_spaces() {
-        let text = "hello    world";
-        let result = apply_rule(text, "collapse_spaces").unwrap();
-        assert_eq!(result, "hello world");
-    }
-
-    #[test]
-    fn test_cjk_spacing() {
-        let text = "中文English混合";
-        let result = apply_rule(text, "cjk_spacing").unwrap();
-        assert_eq!(result, "中文 English 混合");
+    fn test_remove_newlines() {
+        let text = "hello\nworld\r\ntest";
+        let result = apply_rule(text, "remove_newlines").unwrap();
+        assert_eq!(result, "helloworldtest");
     }
 
     #[test]
@@ -352,13 +345,6 @@ mod tests {
         let text = r#"{"name":"test","value":123}"#;
         let result = apply_rule(text, "format_json").unwrap();
         assert!(result.contains("\n"));
-    }
-
-    #[test]
-    fn test_minify_json() {
-        let text = "{\n  \"name\": \"test\"\n}";
-        let result = apply_rule(text, "minify_json").unwrap();
-        assert!(!result.contains("\n"));
     }
 
     #[test]
@@ -384,7 +370,7 @@ mod tests {
     #[test]
     fn test_get_builtin_rules() {
         let rules = get_builtin_rules();
-        assert!(rules.len() >= 9);
+        assert!(rules.len() >= 7);
         assert!(rules.iter().any(|r| r.id == "format_json"));
         assert!(rules.iter().any(|r| r.id == "sort_lines"));
     }

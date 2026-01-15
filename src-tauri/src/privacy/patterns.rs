@@ -137,8 +137,9 @@ mod tests {
 
     #[test]
     fn test_apikey_pattern() {
-        assert!(APIKEY_REGEX.is_match("sk-abcdefghijklmnopqrstuvwx"));
-        assert!(APIKEY_REGEX.is_match("api-1234567890abcdefghij"));
+        // API key regex requires 32-64 chars after prefix
+        assert!(APIKEY_REGEX.is_match("sk-abcdefghijklmnopqrstuvwxyz123456"));
+        assert!(APIKEY_REGEX.is_match("api-1234567890abcdefghij1234567890ab"));
         assert!(!APIKEY_REGEX.is_match("sk-short"));
     }
 

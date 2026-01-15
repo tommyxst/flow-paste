@@ -14,7 +14,9 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "perf:report": "node scripts/perf/generate-report.js",
-    "tauri:kill": "taskkill /F /IM flow-paste.exe 2>nul || echo Done"
+    "tauri:kill": "taskkill /F /IM flow-paste.exe 2>nul || echo Done",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -32,11 +34,14 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@tauri-apps/cli": "^2.9.6",
     "@vitejs/plugin-vue": "^6.0.3",
+    "@vue/test-utils": "^2.4.6",
     "autoprefixer": "^10.4.23",
+    "happy-dom": "^20.3.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vite": "^7.3.0",
+    "vitest": "^4.0.17",
     "vue-tsc": "^3.1.8"
   }
 }
