@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useAppStore } from '@/stores/app'
-import { Sparkles, X, Check, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-vue-next'
+import { Sparkles, X, Check, ChevronDown, ChevronUp, AlertTriangle, Loader2 } from 'lucide-vue-next'
 import type { TransformationType } from '@/types'
 
 const store = useAppStore()
@@ -18,13 +18,13 @@ const transformTypeLabels: Record<TransformationType, string> = {
   'to_lowercase': '转小写',
 }
 
-// 置信度颜色：绿 ≥0.9，黄 ≥0.8，红 <0.8（防御性）
+// 置信度颜色
 const confidenceClass = computed(() => {
   if (!store.ruleSuggestion) return ''
   const conf = store.ruleSuggestion.confidence
   if (conf >= 0.9) return 'high'
   if (conf >= 0.8) return 'medium'
-  return 'low' // 防御性：store 层已过滤 <0.8，但组件应自洽
+  return 'low'
 })
 
 const confidencePercent = computed(() => {
@@ -37,23 +37,8 @@ const transformTypeLabel = computed(() => {
   return transformTypeLabels[store.ruleSuggestion.transformationType] || store.ruleSuggestion.transformationType
 })
 
-// 验证 pattern 是否有效
-const patternError = computed(() => {
-  if (!store.ruleSuggestion?.pattern) return null
-  try {
-    new RegExp(store.ruleSuggestion.pattern)
-    return null
-  } catch (e) {
-    return (e as Error).message
-  }
-})
-
-const canSave = computed(() => !patternError.value)
-
-function handleSave() {
-  if (canSave.value) {
-    store.saveRuleSuggestion()
-  }
+async function handleSave() {
+  await store.saveRuleSuggestion()
 }
 </script>
 
@@ -88,11 +73,12 @@ function handleSave() {
         <button
           @click="handleSave"
           class="action-btn save"
-          :class="{ disabled: !canSave }"
-          :disabled="!canSave"
+          :class="{ disabled: store.isSavingRule }"
+          :disabled="store.isSavingRule"
           title="保存规则"
         >
-          <Check class="w-3.5 h-3.5" />
+          <Loader2 v-if="store.isSavingRule" class="w-3.5 h-3.5 animate-spin" />
+          <Check v-else class="w-3.5 h-3.5" />
         </button>
         <button
           @click="store.dismissRuleSuggestion()"
@@ -114,9 +100,18 @@ function handleSave() {
         <span class="detail-label">替换为:</span>
         <code class="detail-pattern">{{ store.ruleSuggestion.replacement }}</code>
       </div>
-      <div v-if="patternError" class="pattern-error">
-        <AlertTriangle class="w-3 h-3" />
-        <span>正则无效: {{ patternError }}</span>
+    </div>
+
+    <!-- 后端验证错误展示 -->
+    <div
+      v-if="store.ruleValidationError && !store.ruleValidationError.valid"
+      class="validation-errors"
+      role="alert"
+      aria-live="polite"
+    >
+      <AlertTriangle class="w-3 h-3 shrink-0" />
+      <div class="error-list">
+        <span v-for="error in store.ruleValidationError.errors" :key="error">{{ error }}</span>
       </div>
     </div>
   </div>
@@ -313,5 +308,35 @@ function handleSave() {
   margin-top: 6px;
   font-size: 10px;
   color: #ef4444;
+}
+
+.validation-errors {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  font-size: 11px;
+}
+
+.dark .validation-errors {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

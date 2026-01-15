@@ -15,6 +15,7 @@ import type {
   CustomRule,
   Rule,
   RuleSuggestion,
+  RuleValidationResult,
 } from '@/types'
 
 export const useAppStore = defineStore('app', () => {
@@ -46,6 +47,8 @@ export const useAppStore = defineStore('app', () => {
 
   // AI Rule Learning
   const ruleSuggestion = ref<RuleSuggestion | null>(null)
+  const isSavingRule = ref(false)
+  const ruleValidationError = ref<RuleValidationResult | null>(null)
 
   function normalizeCustomRule(rule: CustomRule): CustomRule {
     // customRules 来源于配置，语义上必然不是内置规则；这里做一次防御性归一化，避免错误持久化导致走 apply_rule
@@ -418,38 +421,56 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     })
   }
 
-  async function saveRuleSuggestion() {
-    if (!ruleSuggestion.value || !config.value) return
+  async function saveRuleSuggestion(): Promise<boolean> {
+    if (!ruleSuggestion.value || !config.value) return false
+    if (isSavingRule.value) return false // 防止重复提交
 
-    // 双重验证：仅 regex_replace 类型需要验证 pattern
-    if (ruleSuggestion.value.transformationType === 'regex_replace' &&
-        !validateRulePattern(ruleSuggestion.value.pattern)) {
-      console.error('[AI Rule] Cannot save: invalid pattern')
+    // 清除之前的验证错误
+    ruleValidationError.value = null
+    isSavingRule.value = true
+
+    try {
+      const s = ruleSuggestion.value
+      const newRule: Rule = {
+        id: `ai_${Date.now()}`,
+        name: s.name,
+        description: `AI generated rule`,
+        pattern: s.pattern,
+        replacement: s.replacement,
+        transformationType: s.transformationType,
+        isBuiltin: false,
+        origin: 'ai',
+        enabled: true,
+      }
+
+      // 调用后端验证并保存
+      const result = await commands.upsertRule(newRule)
+      if (!result.valid) {
+        ruleValidationError.value = result
+        return false
+      }
+
+      // 验证通过，刷新配置并固定规则
+      await loadConfig()
+      await pinRule(newRule.id)
       ruleSuggestion.value = null
-      return
+      return true
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      ruleValidationError.value = {
+        valid: false,
+        errors: [message],
+        warnings: [],
+      }
+      return false
+    } finally {
+      isSavingRule.value = false
     }
-
-    const s = ruleSuggestion.value
-    const newRule: CustomRule = {
-      id: `ai_${Date.now()}`,
-      name: s.name,
-      description: `AI generated rule`,
-      pattern: s.pattern,
-      replacement: s.replacement,
-      transformationType: s.transformationType,
-      isBuiltin: false,
-      origin: 'ai',
-      enabled: true,
-      createdAt: Date.now(),
-      usageCount: 0,
-    }
-    await saveCustomRule(newRule)
-    await pinRule(newRule.id)
-    ruleSuggestion.value = null
   }
 
   function dismissRuleSuggestion() {
     ruleSuggestion.value = null
+    ruleValidationError.value = null
   }
 
   // Internal Actions
@@ -653,17 +674,9 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     return suggestion
   }
 
-  // 验证正则 pattern 有效性
+  // 基础校验 pattern（真正的语法验证交给后端 Rust regex）
   function validateRulePattern(pattern: string): boolean {
-    if (!pattern || pattern.length === 0 || pattern.length > 500) {
-      return false
-    }
-    try {
-      new RegExp(pattern)
-      return true
-    } catch {
-      return false
-    }
+    return !!pattern && pattern.length > 0 && pattern.length <= 500
   }
 
   // 检查是否为重复规则（按类型区分判重键）
@@ -721,6 +734,8 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     config,
     builtinRules,
     ruleSuggestion,
+    isSavingRule,
+    ruleValidationError,
     // Computed
     hasContent,
     isProcessing,
