@@ -59,7 +59,34 @@ export interface MaskMapping {
 // ============================================================
 // Panel Types
 // ============================================================
-export type PanelMode = 'idle' | 'preview' | 'processing' | 'result'
+export type PanelMode = 'idle' | 'preview' | 'processing' | 'result' | 'history'
+
+// ============================================================
+// Clipboard History Types
+// ============================================================
+export interface ClipboardHistoryEntry {
+  id: number
+  kind: ClipboardKind
+  preview: string
+  byteLength: number
+  createdAtMs: number
+  piiDetected: boolean
+}
+
+export interface ClipboardHistoryItem {
+  id: number
+  kind: ClipboardKind
+  text?: string
+  preview: string
+  byteLength: number
+  createdAtMs: number
+  piiDetected: boolean
+}
+
+export interface ClipboardHistoryChangedPayload {
+  action: 'insert' | 'delete' | 'clear'
+  id?: number
+}
 
 // ============================================================
 // Rule Types
@@ -126,6 +153,7 @@ export const IPC_EVENTS = {
   AI_ERROR: 'ai:error',
   AI_CANCEL: 'ai:cancel',
   CLIPBOARD_CHANGED: 'clipboard:changed',
+  CLIPBOARD_HISTORY_CHANGED: 'clipboard:history_changed',
 } as const
 
 export type IPCEventName = typeof IPC_EVENTS[keyof typeof IPC_EVENTS]

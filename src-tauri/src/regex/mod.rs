@@ -149,8 +149,8 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
         },
         Rule {
             id: "sort_lines".to_string(),
-            name: "行排序".to_string(),
-            description: "Sort lines alphabetically".to_string(),
+            name: "排序".to_string(),
+            description: "Sort: characters (single line) or lines (multi-line)".to_string(),
             transformation_type: TransformationType::SortLines,
             pattern: String::new(),
             replacement: String::new(),
@@ -162,8 +162,8 @@ static BUILTIN_RULES: Lazy<Vec<CompiledRule>> = Lazy::new(|| {
         },
         Rule {
             id: "dedupe_lines".to_string(),
-            name: "行去重".to_string(),
-            description: "Remove duplicate lines".to_string(),
+            name: "去重".to_string(),
+            description: "Deduplicate: characters (single line) or lines (multi-line)".to_string(),
             transformation_type: TransformationType::DedupeLines,
             pattern: String::new(),
             replacement: String::new(),
@@ -261,20 +261,39 @@ fn minify_json(text: &str) -> Result<String, RegexError> {
 }
 
 fn sort_lines(text: &str) -> String {
-    let mut lines: Vec<&str> = text.lines().collect();
-    lines.sort();
-    lines.join("\n")
+    // Check if input is single line (no newlines)
+    if !text.contains('\n') {
+        // Single line: sort by characters
+        let mut chars: Vec<char> = text.chars().collect();
+        chars.sort();
+        chars.into_iter().collect()
+    } else {
+        // Multiple lines: sort by lines
+        let mut lines: Vec<&str> = text.lines().collect();
+        lines.sort();
+        lines.join("\n")
+    }
 }
 
 fn dedupe_lines(text: &str) -> String {
-    let mut seen = HashSet::new();
-    let mut result = Vec::new();
-    for line in text.lines() {
-        if seen.insert(line) {
-            result.push(line);
+    // Check if input is single line (no newlines)
+    if !text.contains('\n') {
+        // Single line: dedupe by characters (preserve order)
+        let mut seen = HashSet::new();
+        text.chars()
+            .filter(|c| seen.insert(*c))
+            .collect()
+    } else {
+        // Multiple lines: dedupe by lines (preserve order)
+        let mut seen = HashSet::new();
+        let mut result = Vec::new();
+        for line in text.lines() {
+            if seen.insert(line) {
+                result.push(line);
+            }
         }
+        result.join("\n")
     }
-    result.join("\n")
 }
 
 fn apply_regex_rule(text: &str, compiled: &CompiledRule) -> Result<String, RegexError> {
@@ -349,16 +368,34 @@ mod tests {
 
     #[test]
     fn test_sort_lines() {
+        // Multi-line: sort by lines
         let text = "banana\napple\ncherry";
         let result = apply_rule(text, "sort_lines").unwrap();
         assert_eq!(result, "apple\nbanana\ncherry");
     }
 
     #[test]
+    fn test_sort_single_line() {
+        // Single line: sort by characters
+        let text = "dcba321";
+        let result = apply_rule(text, "sort_lines").unwrap();
+        assert_eq!(result, "123abcd");
+    }
+
+    #[test]
     fn test_dedupe_lines() {
+        // Multi-line: dedupe by lines
         let text = "apple\nbanana\napple\ncherry";
         let result = apply_rule(text, "dedupe_lines").unwrap();
         assert_eq!(result, "apple\nbanana\ncherry");
+    }
+
+    #[test]
+    fn test_dedupe_single_line() {
+        // Single line: dedupe by characters (preserve order)
+        let text = "75432432916543832";
+        let result = apply_rule(text, "dedupe_lines").unwrap();
+        assert_eq!(result, "754329168");
     }
 
     #[test]

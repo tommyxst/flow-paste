@@ -37,3 +37,6 @@ node_modules
 .claude/
 CLAUDE.md
 tmpclaude-*-cwd
+
+# Documentation
+ARCHITECTURE.md

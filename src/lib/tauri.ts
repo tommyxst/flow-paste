@@ -8,7 +8,10 @@ import type {
   AIDonePayload,
   AIErrorPayload,
   ClipboardChangedPayload,
+  ClipboardHistoryChangedPayload,
   ClipboardContent,
+  ClipboardHistoryEntry,
+  ClipboardHistoryItem,
   PIIScanResult,
   MaskMapping,
   ModelInfo,
@@ -60,6 +63,9 @@ export const tauriEvents = {
 
   onClipboardChanged: (handler: (payload: ClipboardChangedPayload) => void) =>
     listenToEvent<ClipboardChangedPayload>(IPC_EVENTS.CLIPBOARD_CHANGED, handler),
+
+  onClipboardHistoryChanged: (handler: (payload: ClipboardHistoryChangedPayload) => void) =>
+    listenToEvent<ClipboardHistoryChangedPayload>(IPC_EVENTS.CLIPBOARD_HISTORY_CHANGED, handler),
 }
 
 export interface MaskResult {
@@ -83,6 +89,18 @@ export const commands = {
   pasteToCursor: (text: string, delayMs?: number) =>
     invokeCommand<PasteResult>('paste_to_cursor', { text, delayMs }),
   checkPasteCapability: () => invokeCommand<void>('check_paste_capability'),
+
+  // Clipboard History commands
+  listClipboardHistory: (limit?: number, offset?: number) =>
+    invokeCommand<ClipboardHistoryEntry[]>('list_clipboard_history', { limit, offset }),
+  getClipboardHistory: (id: number) =>
+    invokeCommand<ClipboardHistoryItem>('get_clipboard_history', { id }),
+  deleteClipboardHistory: (id: number) =>
+    invokeCommand<void>('delete_clipboard_history', { id }),
+  clearClipboardHistory: () =>
+    invokeCommand<void>('clear_clipboard_history'),
+  pasteClipboardHistory: (id: number, delayMs?: number) =>
+    invokeCommand<PasteResult>('paste_clipboard_history', { id, delayMs }),
 
   // Privacy Shield commands
   scanPii: (text: string) => invokeCommand<PIIScanResult>('scan_pii', { text }),

@@ -10,6 +10,7 @@ import type {
   AIConfig,
   AppConfig,
   ClipboardContent,
+  ClipboardHistoryEntry,
   ActionSnapshot,
   ErrorInfo,
   CustomRule,
@@ -50,6 +51,11 @@ export const useAppStore = defineStore('app', () => {
   const isSavingRule = ref(false)
   const ruleValidationError = ref<RuleValidationResult | null>(null)
 
+  // Clipboard History
+  const historyEntries = ref<ClipboardHistoryEntry[]>([])
+  const historyLoading = ref(false)
+  const selectedHistoryIndex = ref(0)
+
   function normalizeCustomRule(rule: CustomRule): CustomRule {
     // customRules 来源于配置，语义上必然不是内置规则；这里做一次防御性归一化，避免错误持久化导致走 apply_rule
     return { ...rule, isBuiltin: false }
@@ -86,6 +92,10 @@ export const useAppStore = defineStore('app', () => {
     const visibleIds = new Set(pinnedIds.slice(0, 3))
     return allRules.value.filter(r => !visibleIds.has(r.id))
   })
+
+  // History computed
+  const hasHistory = computed(() => historyEntries.value.length > 0)
+  const isHistoryMode = computed(() => panelMode.value === 'history')
 
   // Panel Actions
   async function showPanel() {
@@ -488,6 +498,92 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     ruleValidationError.value = null
   }
 
+  // Clipboard History Actions
+  async function loadHistory(limit = 50, offset = 0) {
+    historyLoading.value = true
+    try {
+      const entries = await commands.listClipboardHistory(limit, offset)
+      historyEntries.value = entries
+      selectedHistoryIndex.value = 0
+    } catch (e) {
+      console.error('Failed to load clipboard history:', e)
+      historyEntries.value = []
+    } finally {
+      historyLoading.value = false
+    }
+  }
+
+  async function showHistory() {
+    panelMode.value = 'history'
+    await loadHistory()
+  }
+
+  function hideHistory() {
+    panelMode.value = 'preview'
+    selectedHistoryIndex.value = 0
+  }
+
+  async function pasteFromHistory(id: number) {
+    try {
+      // Hide window first
+      const appWindow = getCurrentWindow()
+      await appWindow.hide()
+      isVisible.value = false
+
+      // Wait for focus transfer
+      await new Promise(resolve => setTimeout(resolve, 150))
+
+      // Paste the history item
+      const result = await commands.pasteClipboardHistory(id)
+      if (!result.success) {
+        await appWindow.show()
+        isVisible.value = true
+        setError(result.message || 'Failed to paste', false)
+      } else if (!result.usedSimulation && result.message) {
+        // Show message when simulation failed but clipboard succeeded
+        await appWindow.show()
+        isVisible.value = true
+        setError(result.message, false)
+      } else {
+        reset()
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(`Failed to paste from history: ${msg}`, false)
+    }
+  }
+
+  async function deleteHistoryEntry(id: number) {
+    try {
+      await commands.deleteClipboardHistory(id)
+      historyEntries.value = historyEntries.value.filter(e => e.id !== id)
+      if (selectedHistoryIndex.value >= historyEntries.value.length) {
+        selectedHistoryIndex.value = Math.max(0, historyEntries.value.length - 1)
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(`Failed to delete history entry: ${msg}`, false)
+    }
+  }
+
+  async function clearHistory() {
+    try {
+      await commands.clearClipboardHistory()
+      historyEntries.value = []
+      selectedHistoryIndex.value = 0
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(`Failed to clear history: ${msg}`, false)
+    }
+  }
+
+  function handleHistoryChanged(_payload: { action: string; id?: number }) {
+    // Refresh history when changes occur
+    if (panelMode.value === 'history') {
+      loadHistory()
+    }
+  }
+
   // Internal Actions
   function startProcessing() {
     panelMode.value = 'processing'
@@ -570,6 +666,9 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     ruleSuggestion.value = null
     panelMode.value = 'idle'
     currentRequestId.value = null
+    // Reset history state
+    historyEntries.value = []
+    selectedHistoryIndex.value = 0
   }
 
   // AI Event Handlers (to be called from component setup)
@@ -766,6 +865,10 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     ruleSuggestion,
     isSavingRule,
     ruleValidationError,
+    // History State
+    historyEntries,
+    historyLoading,
+    selectedHistoryIndex,
     // Computed
     hasContent,
     isProcessing,
@@ -773,6 +876,8 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     allRules,
     visibleRules,
     overflowRules,
+    hasHistory,
+    isHistoryMode,
     // Panel Actions
     showPanel,
     hidePanel,
@@ -793,6 +898,14 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
     deleteCustomRule,
     saveRuleSuggestion,
     dismissRuleSuggestion,
+    // History Actions
+    loadHistory,
+    showHistory,
+    hideHistory,
+    pasteFromHistory,
+    deleteHistoryEntry,
+    clearHistory,
+    handleHistoryChanged,
     // Internal Actions
     startProcessing,
     appendStreamContent,

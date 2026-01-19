@@ -5,12 +5,13 @@ import { useThemeProvider } from '@/composables/useTheme'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { Search, Settings, Loader2, RefreshCw, ShieldCheck, ShieldAlert, ClipboardPaste } from 'lucide-vue-next'
+import { Search, Settings, Loader2, RefreshCw, ShieldCheck, ShieldAlert, ClipboardPaste, History } from 'lucide-vue-next'
 import Preview from './Preview.vue'
 import QuickActions from './QuickActions.vue'
 import RuleSuggestion from './RuleSuggestion.vue'
 import SettingsPanel from './SettingsPanel.vue'
 import ErrorDisplay from './ErrorDisplay.vue'
+import HistoryList from './HistoryList.vue'
 
 const store = useAppStore()
 
@@ -25,6 +26,7 @@ let unlistenFocus: (() => void) | null = null
 let unlistenShow: (() => void) | null = null
 let unlistenAIChunk: (() => void) | null = null
 let unlistenAIError: (() => void) | null = null
+let unlistenHistoryChanged: (() => void) | null = null
 
 const previewMode = computed(() => {
   if (store.panelMode === 'processing') return 'streaming'
@@ -78,9 +80,24 @@ function handleGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
+  // Ctrl+H to toggle history
+  if (e.key === 'h' && e.ctrlKey) {
+    e.preventDefault()
+    if (store.isHistoryMode) {
+      store.hideHistory()
+    } else {
+      store.showHistory()
+    }
+    return
+  }
+
   if (e.key === 'Escape') {
     if (showSettings.value) {
       showSettings.value = false
+      return
+    }
+    if (store.isHistoryMode) {
+      store.hideHistory()
       return
     }
     if (store.isProcessing) {
@@ -91,7 +108,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
     return
   }
 
-  if (e.key === 'Enter' && !e.shiftKey && !showSettings.value) {
+  if (e.key === 'Enter' && !e.shiftKey && !showSettings.value && !store.isHistoryMode) {
     if (e.target instanceof HTMLInputElement) {
       e.preventDefault()
       handleSubmit()
@@ -134,6 +151,10 @@ onMounted(async () => {
     store.handleAIError(event.payload)
   })
 
+  unlistenHistoryChanged = await listen<{ action: string; id?: number }>('clipboard:history_changed', (event) => {
+    store.handleHistoryChanged(event.payload)
+  })
+
   window.addEventListener('keydown', handleGlobalKeydown)
 })
 
@@ -142,23 +163,24 @@ onUnmounted(() => {
   unlistenShow?.()
   unlistenAIChunk?.()
   unlistenAIError?.()
+  unlistenHistoryChanged?.()
   window.removeEventListener('keydown', handleGlobalKeydown)
 })
 </script>
 
 <template>
   <div
-    v-if="!showSettings"
+    v-if="!showSettings && !store.isHistoryMode"
     class="floating-panel w-full flex flex-col rounded-xl overflow-hidden animate-scale-in"
   >
     <!-- Header Input Area -->
-    <div 
+    <div
       class="flex items-center px-4 py-3 gap-3 border-b border-gray-100/10"
       @mousedown="startDrag"
     >
       <Search class="w-5 h-5 text-[var(--accent-primary)] shrink-0" v-if="!store.isProcessing" />
       <Loader2 class="w-5 h-5 text-[var(--accent-primary)] animate-spin shrink-0" v-else />
-      
+
       <input
         ref="inputRef"
         v-model="commandInput"
@@ -167,9 +189,9 @@ onUnmounted(() => {
         placeholder="Describe format..."
         :disabled="store.isProcessing"
       />
-      
+
       <div class="flex items-center gap-2 shrink-0">
-        <div 
+        <div
            class="px-2 py-1 rounded text-xs font-medium bg-gray-100/50 dark:bg-white/5 text-[var(--text-secondary)] border border-[var(--panel-border)]"
            v-if="store.clipboardText"
         >
@@ -195,7 +217,7 @@ onUnmounted(() => {
       >
         <QuickActions />
       </div>
-      
+
       <!-- Result Confirmation Actions -->
       <div class="px-4 pb-3 pt-1 border-t border-[var(--panel-border)] bg-gray-50/30 dark:bg-black/10 flex justify-between items-center" v-if="store.panelMode === 'result'">
          <div class="text-xs text-[var(--text-secondary)]">Press <span class="font-bold">Enter</span> to paste</div>
@@ -224,7 +246,7 @@ onUnmounted(() => {
 
       <!-- Footer / Status Bar -->
       <div class="px-4 py-2 bg-gray-50/50 dark:bg-black/20 border-t border-[var(--panel-border)] flex justify-between items-center text-xs text-[var(--text-tertiary)] select-none">
-        
+
         <!-- Privacy Status -->
         <div class="flex items-center gap-1.5" :class="store.privacyStatus.type === 'cloud-safe' ? 'text-emerald-500' : 'text-amber-500'">
           <ShieldCheck v-if="store.privacyStatus.type === 'cloud-safe'" class="w-3.5 h-3.5" />
@@ -235,8 +257,15 @@ onUnmounted(() => {
         </div>
 
         <div class="flex items-center gap-3">
-           <button 
-             @click="showSettings = true" 
+           <button
+             @click="store.showHistory()"
+             class="hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+             title="History (Ctrl+H)"
+           >
+             <History class="w-3.5 h-3.5" />
+           </button>
+           <button
+             @click="showSettings = true"
              class="hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
            >
              <Settings class="w-3.5 h-3.5" />
@@ -255,6 +284,14 @@ onUnmounted(() => {
         @dismiss="store.clearError()"
         class="absolute bottom-12 left-4 right-4"
       />
+  </div>
+
+  <!-- History Panel -->
+  <div
+    v-else-if="!showSettings && store.isHistoryMode"
+    class="floating-panel w-full flex flex-col rounded-xl overflow-hidden animate-scale-in"
+  >
+    <HistoryList />
   </div>
 
   <!-- Settings Panel Overlay -->

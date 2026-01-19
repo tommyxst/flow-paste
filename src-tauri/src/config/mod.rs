@@ -89,6 +89,10 @@ impl ConfigManager {
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| ConfigError::Database(e.to_string()))?;
 
+        // Set busy timeout to handle concurrent access (5 seconds)
+        conn.pragma_update(None, "busy_timeout", "5000")
+            .map_err(|e| ConfigError::Database(e.to_string()))?;
+
         // Create settings table
         conn.execute(
             "CREATE TABLE IF NOT EXISTS settings (

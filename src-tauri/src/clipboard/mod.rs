@@ -1,12 +1,17 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use thiserror::Error;
 
+pub mod history;
 pub mod paste;
-pub use paste::{check_paste_capability, paste_to_cursor, PasteError};
+pub mod poller;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub use history::{ClipboardHistoryEntry, ClipboardHistoryItem, ClipboardHistoryService};
+pub use paste::{check_paste_capability, paste_to_cursor};
+pub use poller::start_clipboard_poller;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ClipboardKind {
     Text,
@@ -42,7 +47,6 @@ pub enum ClipboardError {
 
 pub fn read_clipboard(app: &AppHandle) -> Result<ClipboardContent, ClipboardError> {
     let clipboard = app.clipboard();
-    let mut last_err: Option<String> = None;
 
     // Try text first (most common)
     match clipboard.read_text() {
@@ -55,7 +59,6 @@ pub fn read_clipboard(app: &AppHandle) -> Result<ClipboardContent, ClipboardErro
         }
         Err(e) => {
             log::debug!("Failed to read text from clipboard: {}", e);
-            last_err = Some(e.to_string());
         }
     }
 
@@ -74,18 +77,16 @@ pub fn read_clipboard(app: &AppHandle) -> Result<ClipboardContent, ClipboardErro
         }
         Err(e) => {
             log::debug!("Failed to read image from clipboard: {}", e);
-            if last_err.is_none() {
-                last_err = Some(e.to_string());
-            }
         }
     }
 
-    // Return error with context if we had one
-    if let Some(err) = last_err {
-        Err(ClipboardError::Unavailable(err))
-    } else {
-        Err(ClipboardError::Unsupported)
-    }
+    // Clipboard is empty or has unsupported content - return Unknown instead of error
+    // This is a valid state, not an error condition
+    Ok(ClipboardContent {
+        kind: ClipboardKind::Unknown,
+        text: None,
+        image: None,
+    })
 }
 
 pub fn write_clipboard(app: &AppHandle, text: &str) -> Result<(), ClipboardError> {

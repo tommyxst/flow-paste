@@ -11,6 +11,7 @@ mod hotkey;
 mod performance;
 mod rules;
 
+use clipboard::ClipboardHistoryService;
 use commands::AIState;
 use config::ConfigManager;
 use hotkey::HotkeyManager;
@@ -37,6 +38,15 @@ pub fn run() {
             // Initialize Hotkey Manager
             let hotkey_manager = HotkeyManager::new();
             app.manage(hotkey_manager);
+
+            // Initialize Clipboard History Service
+            let history_service = ClipboardHistoryService::init(app.handle())
+                .expect("Failed to initialize clipboard history service");
+            app.manage(Arc::new(history_service));
+
+            // Start clipboard history poller
+            let poller_handle = clipboard::start_clipboard_poller(app.handle().clone());
+            app.manage(poller_handle);
 
             let window = app.get_webview_window("main")
                 .expect("Main window not found - check tauri.conf.json");
@@ -101,6 +111,11 @@ pub fn run() {
             commands::validate_rule_cmd,
             commands::register_hotkey,
             commands::unregister_hotkey,
+            commands::list_clipboard_history,
+            commands::get_clipboard_history,
+            commands::delete_clipboard_history,
+            commands::clear_clipboard_history,
+            commands::paste_clipboard_history,
             performance::report_render_timestamp,
             performance::run_perf_suite,
             commands::is_hotkey_registered,
