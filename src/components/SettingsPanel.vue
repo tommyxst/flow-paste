@@ -64,7 +64,7 @@ function handleCancel() { emit('close') }
         <div class="header-icon"><Settings :size="18" /></div>
         <h2>设置</h2>
       </div>
-      <button @click="handleCancel" class="close-btn" aria-label="关闭"><X :size="18" /></button>
+      <button @click="handleCancel" @mousedown.stop class="close-btn" aria-label="关闭"><X :size="18" /></button>
     </header>
     
     <form @submit.prevent="handleSave" class="panel-content">

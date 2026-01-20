@@ -54,7 +54,8 @@ async function startDrag() {
 
 function handleSubmit() {
   if (!commandInput.value.trim()) {
-    if (store.panelMode === 'result') {
+    // Allow paste in both preview and result modes when input is empty
+    if (store.panelMode === 'result' || store.panelMode === 'preview') {
       confirmAndClose()
     }
     return
@@ -74,14 +75,21 @@ function handleSettingsClose() {
 }
 
 function handleGlobalKeydown(e: KeyboardEvent) {
-  if (e.key === ',' && e.ctrlKey) {
+  // Ctrl+Alt+S to toggle settings
+  if (e.code === 'KeyS' && e.ctrlKey && e.altKey) {
     e.preventDefault()
     showSettings.value = !showSettings.value
     return
   }
 
+  // Disable Ctrl+P (browser print)
+  if (e.code === 'KeyP' && e.ctrlKey) {
+    e.preventDefault()
+    return
+  }
+
   // Ctrl+H to toggle history
-  if (e.key === 'h' && e.ctrlKey) {
+  if (e.code === 'KeyH' && e.ctrlKey) {
     e.preventDefault()
     if (store.isHistoryMode) {
       store.hideHistory()
@@ -169,138 +177,148 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div
-    v-if="!showSettings && !store.isHistoryMode"
-    class="floating-panel w-full flex flex-col rounded-xl overflow-hidden animate-scale-in"
-  >
-    <!-- Header Input Area -->
+  <div class="panel-container" @click.self="hideWindow">
     <div
-      class="flex items-center px-4 py-3 gap-3 border-b border-gray-100/10"
-      @mousedown="startDrag"
+      v-if="!showSettings && !store.isHistoryMode"
+      class="floating-panel w-full flex flex-col rounded-xl overflow-hidden animate-scale-in"
     >
-      <Search class="w-5 h-5 text-[var(--accent-primary)] shrink-0" v-if="!store.isProcessing" />
-      <Loader2 class="w-5 h-5 text-[var(--accent-primary)] animate-spin shrink-0" v-else />
-
-      <input
-        ref="inputRef"
-        v-model="commandInput"
-        type="text"
-        class="flex-1 bg-transparent text-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none min-w-0 font-medium"
-        placeholder="Describe format..."
-        :disabled="store.isProcessing"
-      />
-
-      <div class="flex items-center gap-2 shrink-0">
-        <div
-           class="px-2 py-1 rounded text-xs font-medium bg-gray-100/50 dark:bg-white/5 text-[var(--text-secondary)] border border-[var(--panel-border)]"
-           v-if="store.clipboardText"
-        >
-          {{ store.clipboardText.length }} chars
-        </div>
-      </div>
-    </div>
-
-    <!-- Main Content -->
-    <div class="flex-col flex">
-      <!-- Preview / Result Area -->
-      <div class="px-4 py-3">
-        <Preview
-          :content="previewContent"
-          :mode="previewMode"
-        />
-      </div>
-
-      <!-- Quick Actions -->
+      <!-- Header Input Area -->
       <div
-        class="px-4 pb-3"
-        v-if="!store.isProcessing && store.hasContent"
+        class="flex items-center px-4 py-3 gap-3 border-b border-gray-100/10"
+        @mousedown="startDrag"
       >
-        <QuickActions />
-      </div>
+        <Search class="w-5 h-5 text-[var(--accent-primary)] shrink-0" v-if="!store.isProcessing" />
+        <Loader2 class="w-5 h-5 text-[var(--accent-primary)] animate-spin shrink-0" v-else />
 
-      <!-- Result Confirmation Actions -->
-      <div class="px-4 pb-3 pt-1 border-t border-[var(--panel-border)] bg-gray-50/30 dark:bg-black/10 flex justify-between items-center" v-if="store.panelMode === 'result'">
-         <div class="text-xs text-[var(--text-secondary)]">Press <span class="font-bold">Enter</span> to paste</div>
-         <div class="flex gap-2">
-            <button
-              @click="confirmAndClose()"
-              class="p-1.5 hover:bg-[var(--accent-primary)]/10 rounded text-[var(--accent-primary)] transition-colors"
-              title="Paste to cursor"
-            >
-              <ClipboardPaste class="w-4 h-4" />
-            </button>
-            <button
-              @click="store.reset(); store.refreshClipboard()"
-              class="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded text-[var(--text-tertiary)] transition-colors"
-              title="Reset"
-            >
-              <RefreshCw class="w-4 h-4" />
-            </button>
-         </div>
-      </div>
+        <input
+          ref="inputRef"
+          v-model="commandInput"
+          type="text"
+          class="flex-1 bg-transparent text-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none min-w-0 font-medium"
+          placeholder="Describe format..."
+          :disabled="store.isProcessing"
+        />
 
-      <!-- Rule Suggestion -->
-      <div class="px-4 pb-3" v-if="store.panelMode === 'result' && store.ruleSuggestion">
-        <RuleSuggestion />
-      </div>
-
-      <!-- Footer / Status Bar -->
-      <div class="px-4 py-2 bg-gray-50/50 dark:bg-black/20 border-t border-[var(--panel-border)] flex justify-between items-center text-xs text-[var(--text-tertiary)] select-none">
-
-        <!-- Privacy Status -->
-        <div class="flex items-center gap-1.5" :class="store.privacyStatus.type === 'cloud-safe' ? 'text-emerald-500' : 'text-amber-500'">
-          <ShieldCheck v-if="store.privacyStatus.type === 'cloud-safe'" class="w-3.5 h-3.5" />
-          <ShieldAlert v-else class="w-3.5 h-3.5" />
-          <span class="font-medium">
-             {{ store.privacyStatus.type === 'cloud-safe' ? 'Secure Mode' : `PII Masked (${store.privacyStatus.maskedCount})` }}
-          </span>
-        </div>
-
-        <div class="flex items-center gap-3">
-           <button
-             @click="store.showHistory()"
-             class="hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
-             title="History (Ctrl+H)"
-           >
-             <History class="w-3.5 h-3.5" />
-           </button>
-           <button
-             @click="showSettings = true"
-             class="hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
-           >
-             <Settings class="w-3.5 h-3.5" />
-           </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <div
+             class="px-2 py-1 rounded text-xs font-medium bg-gray-100/50 dark:bg-white/5 text-[var(--text-secondary)] border border-[var(--panel-border)]"
+             v-if="store.clipboardText"
+          >
+            {{ store.clipboardText.length }} chars
+          </div>
         </div>
       </div>
+
+      <!-- Main Content -->
+      <div class="flex-col flex">
+        <!-- Preview / Result Area -->
+        <div class="px-4 py-3">
+          <Preview
+            :content="previewContent"
+            :mode="previewMode"
+          />
+        </div>
+
+        <!-- Quick Actions -->
+        <div
+          class="px-4 pb-3"
+          v-if="!store.isProcessing && store.hasContent"
+        >
+          <QuickActions />
+        </div>
+
+        <!-- Result Confirmation Actions -->
+        <div class="px-4 pb-3 pt-1 border-t border-[var(--panel-border)] bg-gray-50/30 dark:bg-black/10 flex justify-between items-center" v-if="store.panelMode === 'result'">
+           <div class="text-xs text-[var(--text-secondary)]">Press <span class="font-bold">Enter</span> to paste</div>
+           <div class="flex gap-2">
+              <button
+                @click="confirmAndClose()"
+                class="p-1.5 hover:bg-[var(--accent-primary)]/10 rounded text-[var(--accent-primary)] transition-colors"
+                title="Paste to cursor"
+              >
+                <ClipboardPaste class="w-4 h-4" />
+              </button>
+              <button
+                @click="store.reset(); store.refreshClipboard()"
+                class="p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded text-[var(--text-tertiary)] transition-colors"
+                title="Reset"
+              >
+                <RefreshCw class="w-4 h-4" />
+              </button>
+           </div>
+        </div>
+
+        <!-- Rule Suggestion -->
+        <div class="px-4 pb-3" v-if="store.panelMode === 'result' && store.ruleSuggestion">
+          <RuleSuggestion />
+        </div>
+
+        <!-- Footer / Status Bar -->
+        <div class="px-4 py-2 bg-gray-50/50 dark:bg-black/20 border-t border-[var(--panel-border)] flex justify-between items-center text-xs text-[var(--text-tertiary)] select-none">
+
+          <!-- Privacy Status -->
+          <div class="flex items-center gap-1.5" :class="store.privacyStatus.type === 'cloud-safe' ? 'text-emerald-500' : 'text-amber-500'">
+            <ShieldCheck v-if="store.privacyStatus.type === 'cloud-safe'" class="w-3.5 h-3.5" />
+            <ShieldAlert v-else class="w-3.5 h-3.5" />
+            <span class="font-medium">
+               {{ store.privacyStatus.type === 'cloud-safe' ? 'Secure Mode' : `PII Masked (${store.privacyStatus.maskedCount})` }}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-3">
+             <button
+               @click="store.showHistory()"
+               class="hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+               title="History (Ctrl+H)"
+             >
+               <History class="w-3.5 h-3.5" />
+             </button>
+             <button
+               @click="showSettings = true"
+               class="hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
+             >
+               <Settings class="w-3.5 h-3.5" />
+             </button>
+          </div>
+        </div>
+      </div>
+
+       <!-- Error Display -->
+        <ErrorDisplay
+          v-if="store.errorInfo"
+          :error="store.errorInfo"
+          :retry-count="store.lastAction?.retryCount ?? 0"
+          :max-retries="store.lastAction?.maxRetries ?? 3"
+          @retry="store.retryLastAction()"
+          @dismiss="store.clearError()"
+          class="absolute bottom-12 left-4 right-4"
+        />
     </div>
 
-     <!-- Error Display -->
-      <ErrorDisplay
-        v-if="store.errorInfo"
-        :error="store.errorInfo"
-        :retry-count="store.lastAction?.retryCount ?? 0"
-        :max-retries="store.lastAction?.maxRetries ?? 3"
-        @retry="store.retryLastAction()"
-        @dismiss="store.clearError()"
-        class="absolute bottom-12 left-4 right-4"
-      />
-  </div>
+    <!-- History Panel -->
+    <div
+      v-else-if="!showSettings && store.isHistoryMode"
+      class="floating-panel w-full flex flex-col rounded-xl overflow-hidden animate-scale-in"
+    >
+      <HistoryList />
+    </div>
 
-  <!-- History Panel -->
-  <div
-    v-else-if="!showSettings && store.isHistoryMode"
-    class="floating-panel w-full flex flex-col rounded-xl overflow-hidden animate-scale-in"
-  >
-    <HistoryList />
-  </div>
-
-  <!-- Settings Panel Overlay -->
-  <div v-else class="settings-overlay">
-    <SettingsPanel @close="handleSettingsClose" />
+    <!-- Settings Panel Overlay -->
+    <div v-else class="settings-overlay">
+      <SettingsPanel @close="handleSettingsClose" />
+    </div>
   </div>
 </template>
 
 <style scoped>
+.panel-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+}
+
 .floating-panel {
   background: var(--panel-bg);
   backdrop-filter: blur(var(--glass-blur));

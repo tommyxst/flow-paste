@@ -2,6 +2,8 @@
 import { Keyboard, Palette } from 'lucide-vue-next'
 import type { AppConfig } from '@/types'
 import SettingsSectionShell from './SettingsSectionShell.vue'
+import HotkeyRecorder from './HotkeyRecorder.vue'
+import FixedShortcutsList from './FixedShortcutsList.vue'
 
 defineProps<{
   formData: AppConfig
@@ -16,15 +18,10 @@ defineProps<{
           <Keyboard :size="14" />
           <span>全局热键</span>
         </label>
-        <input
+        <HotkeyRecorder
           v-model="formData.hotkey"
-          type="text"
-          class="field-input"
-          :class="{ 'has-error': errors.hotkey }"
-          placeholder="Ctrl+Shift+V"
+          :error="errors.hotkey"
         />
-        <p v-if="errors.hotkey" class="field-error">{{ errors.hotkey }}</p>
-        <p class="field-hint">支持: Ctrl, Shift, Alt, Meta, CommandOrControl</p>
       </div>
 
       <div class="field-group">
@@ -49,6 +46,8 @@ defineProps<{
           </button>
         </div>
       </div>
+
+      <FixedShortcutsList />
   </SettingsSectionShell>
 </template>
 

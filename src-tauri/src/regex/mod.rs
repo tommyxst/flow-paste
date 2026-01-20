@@ -243,9 +243,13 @@ fn apply_compiled_rule(text: &str, compiled: &CompiledRule) -> Result<String, Re
 
 fn format_json(text: &str) -> Result<String, RegexError> {
     match serde_json::from_str::<serde_json::Value>(text) {
-        Ok(value) => serde_json::to_string_pretty(&value)
-            .map_err(|e| RegexError::InvalidJson(e.to_string())),
-        Err(_) => {
+        // 只有当解析出的是 Object 或 Array 时，才直接格式化
+        Ok(value) if value.is_object() || value.is_array() => {
+            serde_json::to_string_pretty(&value)
+                .map_err(|e| RegexError::InvalidJson(e.to_string()))
+        }
+        // 其他情况（解析失败，或者解析成功但只是数字/字符串/布尔值），都进行包裹
+        _ => {
             let wrapped = serde_json::json!({ "text": text.trim() });
             serde_json::to_string_pretty(&wrapped)
                 .map_err(|e| RegexError::InvalidJson(e.to_string()))

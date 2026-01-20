@@ -20,6 +20,9 @@ export function useSettingsSaveFlow() {
     isSaving.value = true
 
     try {
+      // Save old hotkey BEFORE updating config (to compare correctly)
+      const oldHotkey = store.config?.hotkey
+
       // Save config to store
       await store.saveConfig(draft)
 
@@ -29,8 +32,8 @@ export function useSettingsSaveFlow() {
         return { success: false, error: '保存 API Key 失败' }
       }
 
-      // Register hotkey if changed
-      if (store.config && draft.hotkey !== store.config.hotkey) {
+      // Register hotkey if changed (compare with saved old value)
+      if (draft.hotkey !== oldHotkey) {
         await commands.registerHotkey(draft.hotkey)
       }
 

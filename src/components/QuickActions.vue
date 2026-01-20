@@ -12,10 +12,11 @@ function handleRuleClick(ruleId: string) {
 }
 
 function handleKeydown(e: KeyboardEvent) {
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+  // if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
+  // Alt+1, Alt+2, Alt+3 for quick actions
   const key = e.key
-  if (key >= '1' && key <= '3') {
+  if (e.altKey && key >= '1' && key <= '3') {
     const index = parseInt(key) - 1
     const rules = store.visibleRules
     if (index < rules.length) {
@@ -42,7 +43,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       <Command class="w-3.5 h-3.5 opacity-70" />
       <span class="font-medium">{{ rule.name }}</span>
       <span class="ml-1 text-[10px] opacity-50 font-mono bg-black/5 dark:bg-white/10 px-1 rounded">
-        {{ index + 1 }}
+        Alt+{{ index + 1 }}
       </span>
     </button>
 
