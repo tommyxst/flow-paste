@@ -60,7 +60,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
       <!-- Dropdown -->
       <div
         v-if="showOverflow"
-        class="absolute bottom-full left-0 mb-1 py-1 bg-[var(--panel-bg)] border border-[var(--panel-border)] rounded-lg shadow-lg min-w-[160px] z-10"
+        class="absolute bottom-full right-0 mb-1 py-1 bg-[var(--panel-bg)] border border-[var(--panel-border)] rounded-lg shadow-lg min-w-[160px] z-10"
       >
         <button
           v-for="rule in store.overflowRules"
