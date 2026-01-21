@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { Keyboard, Palette } from 'lucide-vue-next'
 import type { AppConfig } from '@/types'
+import { setTheme, type ThemeMode } from '@/composables/useTheme'
 import SettingsSectionShell from './SettingsSectionShell.vue'
 import HotkeyRecorder from './HotkeyRecorder.vue'
 import FixedShortcutsList from './FixedShortcutsList.vue'
 
-defineProps<{
+const props = defineProps<{
   formData: AppConfig
   errors: Record<string, string>
 }>()
+
+function handleThemeChange(value: ThemeMode) {
+  props.formData.theme = value
+  // Apply theme immediately for preview
+  setTheme(value)
+}
 </script>
 
 <template>
@@ -38,7 +45,7 @@ defineProps<{
               {value: 'dark', label: '深色'}
             ]"
             :key="opt.value"
-            @click="formData.theme = opt.value as 'system' | 'light' | 'dark'"
+            @click="handleThemeChange(opt.value as ThemeMode)"
             class="theme-option"
             :class="{ active: formData.theme === opt.value }"
           >

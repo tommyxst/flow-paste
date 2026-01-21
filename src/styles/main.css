@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode instead of prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   /* Surface Colors - Light */
   --surface-base: 255 255 255;

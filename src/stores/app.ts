@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { commands } from '@/lib/tauri'
+import { setTheme } from '@/composables/useTheme'
 import type {
   ActionChip,
   PrivacyStatus,
@@ -378,6 +379,8 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
         customRules: (loaded.customRules ?? []).map(normalizeCustomRule),
       }
       builtinRules.value = await commands.getBuiltinRules()
+      // Apply theme from config
+      setTheme(loaded.theme)
     } catch (e) {
       console.error('Failed to load config:', e)
     }
@@ -391,6 +394,8 @@ Valid types: regex_replace, json_format, json_minify, sort_lines, dedupe_lines, 
       }
       await commands.setConfig(normalized)
       config.value = normalized
+      // Apply theme immediately after save
+      setTheme(normalized.theme)
     } catch (e) {
       setError(`Failed to save config: ${e}`)
     }

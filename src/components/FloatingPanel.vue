@@ -334,7 +334,7 @@ onUnmounted(() => {
   align-items: flex-start;
   justify-content: center;
   padding: 16px;
-  background: #141414;
+  background: rgb(var(--surface-base));
   overflow-y: auto;
 }
 </style>

@@ -9,10 +9,13 @@
  */
 import { ref, readonly, onMounted, onUnmounted } from 'vue'
 
+export type ThemeMode = 'system' | 'light' | 'dark'
+
 // Module-level state to ensure single instance
 let initialized = false
 const isDark = ref(false)
 const prefersReducedMotion = ref(false)
+let currentThemeMode: ThemeMode = 'system'
 
 // Store cleanup functions
 let themeCleanup: (() => void) | null = null
@@ -21,14 +24,20 @@ let motionCleanup: (() => void) | null = null
 function initTheme() {
   if (initialized || typeof window === 'undefined') return
 
-  // Theme detection
+  // Theme detection - only apply system preference if mode is 'system'
   const themeQuery = window.matchMedia('(prefers-color-scheme: dark)')
-  isDark.value = themeQuery.matches
-  applyTheme(isDark.value)
+
+  if (currentThemeMode === 'system') {
+    isDark.value = themeQuery.matches
+    applyTheme(isDark.value)
+  }
 
   const themeListener = (e: MediaQueryListEvent) => {
-    isDark.value = e.matches
-    applyTheme(e.matches)
+    // Only respond to system changes when in 'system' mode
+    if (currentThemeMode === 'system') {
+      isDark.value = e.matches
+      applyTheme(e.matches)
+    }
   }
   themeQuery.addEventListener('change', themeListener)
   themeCleanup = () => themeQuery.removeEventListener('change', themeListener)
@@ -64,6 +73,25 @@ function cleanup() {
   themeCleanup = null
   motionCleanup = null
   initialized = false
+}
+
+/**
+ * Set theme mode - call this when user changes theme preference
+ */
+export function setTheme(mode: ThemeMode) {
+  currentThemeMode = mode
+
+  if (typeof window === 'undefined') return
+
+  if (mode === 'system') {
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    isDark.value = systemDark
+    applyTheme(systemDark)
+  } else {
+    const dark = mode === 'dark'
+    isDark.value = dark
+    applyTheme(dark)
+  }
 }
 
 /**
