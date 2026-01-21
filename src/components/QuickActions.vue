@@ -1,15 +1,31 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { Command, MoreHorizontal } from 'lucide-vue-next'
 
 const store = useAppStore()
 const showOverflow = ref(false)
+const menuRef = ref<HTMLElement | null>(null)
 
 function handleRuleClick(ruleId: string) {
   showOverflow.value = false
   store.processWithRule(ruleId)
 }
+
+function handleClickOutside(e: MouseEvent) {
+  if (menuRef.value && !menuRef.value.contains(e.target as Node)) {
+    showOverflow.value = false
+  }
+}
+
+// Add/remove click outside listener when menu opens/closes
+watch(showOverflow, (isOpen) => {
+  if (isOpen) {
+    document.addEventListener('click', handleClickOutside, true)
+  } else {
+    document.removeEventListener('click', handleClickOutside, true)
+  }
+})
 
 function handleKeydown(e: KeyboardEvent) {
   // if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
@@ -27,7 +43,10 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => window.addEventListener('keydown', handleKeydown))
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('click', handleClickOutside, true)
+})
 </script>
 
 <template>
@@ -48,7 +67,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
     </button>
 
     <!-- Overflow Menu -->
-    <div v-if="store.overflowRules.length > 0" class="relative">
+    <div v-if="store.overflowRules.length > 0" class="relative" ref="menuRef">
       <button
         class="p-1.5 rounded-lg border border-[var(--panel-border)] text-[var(--text-tertiary)] hover:bg-gray-100/50 dark:hover:bg-white/5 transition-colors"
         @click="showOverflow = !showOverflow"
